@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-10",
+  "repository": "https://github.com/win4r/MuseAI-Skills",
+  "commit": "38bbb45a2c5a0f70de975f6387385770b9ad8aac",
+  "commitDate": "2026-09-28T00:49:53Z",
+  "upstreamHeadAtCheck": "38bbb45a2c5a0f70de975f6387385770b9ad8aac",
+  "provenance": "community archive, not official source; authenticity not independently verified",
+  "redistribution": "original documents retained locally only; public notes are original analysis",
+  "files": [
+    {
+      "path": "README.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/README.md",
+      "sha256": "a53fad190eb86172f12178409e20b2f7eac98dee494e765a0376e0ea25573f26",
+      "bytes": 47613,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "home/hatch/docs/self_improvement.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/home/hatch/docs/self_improvement.md",
+      "sha256": "aaf856069ffc853c259ae82660b084e257560bb4ae634731a57bdebf13df93e9",
+      "bytes": 3136,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "home/hatch/docs/files-and-library.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/home/hatch/docs/files-and-library.md",
+      "sha256": "409140751d15b734797a0472c104a724e9e2e628794423a78ef83fe46a3b2abf",
+      "bytes": 6447,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "home/hatch/docs/muse.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/home/hatch/docs/muse.md",
+      "sha256": "7024736babaa1339e9978ca588c2904c50506cc8aa824ef20154cf76ddab6b09",
+      "bytes": 5436,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "home/hatch/docs/scheduling-and-watching.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/home/hatch/docs/scheduling-and-watching.md",
+      "sha256": "bdebc4ad3cdceeebe1f9837f47b6e94ccd51b616b617af87a4bc68a5fc2379f7",
+      "bytes": 2938,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "home/hatch/docs/feed.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/home/hatch/docs/feed.md",
+      "sha256": "f10c7f2bb788b954bb1d66d47f0ab2462f518411e2e4e31184e69dbb2544cd39",
+      "bytes": 6128,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "home/hatch/assets/onboarding_tour/memory_import.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/home/hatch/assets/onboarding_tour/memory_import.md",
+      "sha256": "d774929f29e5c9a2a0ad14c5d6da619bd2dbb455051610e4929a1c43d3f1730b",
+      "bytes": 3805,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "opt/hatch/skills/travel-planning/references/planning-kickoff.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/opt/hatch/skills/travel-planning/references/planning-kickoff.md",
+      "sha256": "108b11f46915659e5e5a363f8401b2d14331e25b69f39adc51829342e2c17524",
+      "bytes": 6955,
+      "inspection": "targeted reading; see research notes"
+    },
+    {
+      "path": "opt/hatch/skills/muse_db/references/schema.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/opt/hatch/skills/muse_db/references/schema.md",
+      "sha256": "97682437d3837a8c9dd1390ef671c57c8b6db10501517b2e914d4dca376b7618",
+      "bytes": 199405,
+      "inspection": "targeted memory.claims/entries excerpts only"
+    },
+    {
+      "path": "opt/hatch/skills/forget/SKILL.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/38bbb45a2c5a0f70de975f6387385770b9ad8aac/opt/hatch/skills/forget/SKILL.md",
+      "sha256": "3ffe3787b0d1e0208ef006271e85c5c744792ce6a51293dc90a75d0dfe436f6e",
+      "bytes": 6569,
+      "inspection": "targeted reading; see research notes"
+    }
+  ]
+}
