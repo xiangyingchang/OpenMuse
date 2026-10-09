@@ -18,7 +18,7 @@ Mac App 打开时，OpenMuse 服务绑定 `127.0.0.1:4388`；iPhone 不直接访
 
 当前桥接只把本轮聊天和相关资料交给 Mac 上配置的 Pi 模型；iPhone 本地保存对话。Mac不可达时，若iPhone配置了模型就回退到手机，否则明确报错。桥接不传输消息历史、目标、记忆修订、构件或附件，也不提供取消、文件/浏览器工具、检查点、后台常驻或完整任务接管。不能把“聊天已经由Mac回复”说成“Pi已操作电脑”。本地服务的配对、一次性码、重启后凭证继续有效、撤销拒绝和远程明文地址拒绝通过合成测试。
 
-2026-10-10 补充验收：本机 `/health` 返回200；Mac 通过 `curl` 访问 Tailscale HTTPS 8443 可完成 TLS 并获得200，443既有根路由仍指向本地4387，Funnel仅保留在443。相同 HTTPS 地址经 OpenMuse 的 `URLSession` 客户端自测失败（SecureTransport `-9816`）；关闭系统HTTP/SOCKS代理仍失败。此结果意味着不能宣称 iPhone 桥接可用，须由已登录Tailscale的iPhone实测 DNS、TLS和配对。公开问题[#19147](https://github.com/tailscale/tailscale/issues/19147)有 iPhone 上 `.ts.net` Serve HTTPS失败的报告；其中一位贡献者把一组案例归因为第三方DNS/DoH影响，也有仍未解决的相似报告。此为社区报告而非已证实的本项目故障原因。当前Mac URLSession失败同样未归因。不要用HTTP、关闭TLS校验或更改现有VPN/DNS配置来掩盖失败。
+2026-10-10 补充验收：本机 `/health` 返回200；Mac 上普通 `curl`、绕过代理的 `curl`、强制解析到 tailnet IP 的 `curl` 访问 Tailscale HTTPS 8443 都返回200，证书校验结果为0；443既有根路由仍指向本地4387，Funnel仅保留在443。OpenMuse 的 Swift `URLSession` 对相同 HTTPS 地址自测失败并报告 SecureTransport `-9816`。Apple 将此码定义为 `errSSLClosedNoNotify`，即服务端关闭会话但未发送关闭通知；它本身不代表证书校验失败。[Apple 错误码说明](https://developer.apple.com/documentation/security/errsslclosednonotify)。关闭系统HTTP/SOCKS代理也不改变结果，因此当前根因未定位。Mac 的对照测试不能证明 iPhone 桥接可用；iPhone 尚未连入该 tailnet，仍须实测 DNS、HTTPS、配对和聊天。公开问题[#19147](https://github.com/tailscale/tailscale/issues/19147)有 iPhone 上 `.ts.net` Serve HTTPS失败的报告；其中一位贡献者把一组案例归因为第三方DNS/DoH影响，也有仍未解决的相似报告。此为社区报告而非本项目故障根因证据。不要用HTTP、关闭TLS校验或更改现有VPN/DNS配置来掩盖失败。
 
 ## 数据同步：一期本地为主
 

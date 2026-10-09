@@ -49,4 +49,6 @@
 
 当前 Mac 的 Serve HTTPS 路由从 `curl` 可用，但相同路由的 Swift `URLSession` 自连接测试失败，错误码 `-9816`；本机 loopback HTTP 正常。尚无在线iPhone测试，因此根因未定。Tailscale公开问题[#19147](https://github.com/tailscale/tailscale/issues/19147)报告过iPhone无法打开 `.ts.net` Serve HTTPS；一位贡献者在其中将一组案例归因到第三方DoH/DNS覆盖，另有后续用户报告尚无解决方案。问题记录是排查线索，不证明OpenMuse或该手机存在相同问题。
 
+2026-10-10 排查补充：Apple 将 SecureTransport `-9816` 定义为 `errSSLClosedNoNotify`（服务端关闭会话但未发送通知），它本身不表示证书校验失败。Mac 上普通、显式绕过代理、强制解析到 tailnet IP 的 `curl` 均返回 HTTP 200 且证书校验结果为0；进程环境没有代理变量。故排除“curl 只是经普通 HTTP 代理成功”的解释，但 `URLSession` 的差异仍未定位。Apple 错误码说明见[Secure Transport Result Codes](https://developer.apple.com/documentation/security/secure-transport-result-codes)及[`errSSLClosedNoNotify`](https://developer.apple.com/documentation/security/errsslclosednonotify)。iPhone 未连接，仍不能从 Mac 测试推断手机结果。
+
 本轮不降级为明文、不跳过证书验证、不改动Shadowrocket/VPN/DNS。等iPhone解锁并连接Tailscale后，先测MagicDNS解析与Mac的HTTPS健康地址；若失败，再按设备日志判断要不要试独立网络配置，先回退、单变量验证。备选架构另行记录和讨论，不作为当前既定实现。

@@ -2,7 +2,7 @@
 
 一个持续认识你、陪你把想做的事情一步步做成的开源个人 AI。面向中国用户，正在开发 iOS 与 macOS 客户端，并支持自定义模型。
 
-> 当前状态（2026-10-10）：双端原生工程、本机持久化和首个体验界面已实现。Mac Debug App 已构建并启动，iOS 模拟器 App 已安装并启动；iPhone 真机签名等待在 Xcode 登录 Apple Account。Mac 的 loopback 桥接、一次性配对与独立 Tailscale Serve 路由已实现；本机配对生命周期测试通过，但 Mac 的 `URLSession` 对 Tailscale HTTPS 自连接仍失败，iPhone 当前离线，因此跨设备能力尚未验收。真实模型凭证、资料同步和 Pi 电脑工具也未完成。详见[迭代记录](docs/ITERATIONS.md)与[双端协议](docs/RUNTIME_PROTOCOL.md)。
+> 当前状态（2026-10-10）：双端原生工程、本机持久化和首个体验界面已实现。Mac Debug App 已构建并启动，iOS 模拟器 App 已安装并启动；iPhone 真机签名等待在 Xcode 登录 Apple Account。Mac 的 loopback 桥接、一次性配对与独立 Tailscale Serve 路由已实现；本机配对生命周期测试通过。Mac 上 `curl` 可访问 Serve HTTPS，但 OpenMuse 的 `URLSession` 返回 SecureTransport `-9816`（服务端未发送会话关闭通知），客户端差异尚未定位；iPhone 当前离线，因此跨设备能力尚未验收。真实模型凭证、资料同步和 Pi 电脑工具也未完成。详见[迭代记录](docs/ITERATIONS.md)与[双端协议](docs/RUNTIME_PROTOCOL.md)。
 
 长期目标是让一个人拥有可携带、可纠正、会随生活变化而成长的 AI 陪伴者。产品价值来自真实帮助、连续理解与目标进展。
 

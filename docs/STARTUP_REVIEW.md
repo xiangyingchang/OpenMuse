@@ -23,6 +23,6 @@
 
 2026-10-10 更新：K06 的本机聊天桥接和设备配对已在代码中实现并通过合成集成测试，配对后手机聊天可路由到 Mac 的 Pi；Mac Settings 提供单独的 Tailscale Serve 8443 私有路由启用动作。代码检查会拒绝覆盖该端口已有服务，并核验其他端口配置不变。真实 tailnet 端到端与蜂窝验收还未完成。该桥接只代转模型回合，Pi 工具仍关闭，Mac 本地文件/浏览器操作未完成；模型真实凭证和 iPhone 真机签名仍各自需要用户配置/参与。
 
-后续实测补记：当前 Mac 已启用独立 `8443/openmuse` Serve 路由，验证旧443根路由仍代理到原4387，Funnel也只在443。OpenMuse loopback `/health` 和 Mac 端 `curl` HTTPS 检查通过；OpenMuse `URLSession` 对同一 Tailscale 域名的 TLS 握手失败，关闭代理仍失败。当前 iPhone 的 Tailscale 节点状态为离线，故尚未真机配对；不能把 Serve 路由存在视为跨设备可用。用户解锁并连接Tailscale后需要先实测，再判断本机URLSession失败是否为自连接限制或共同TLS问题。社区中存在iPhone对Serve HTTPS失败报告，DNS/DoH可能是个别原因，详见RUNTIME_PROTOCOL链接。
+后续实测补记：当前 Mac 已启用独立 `8443/openmuse` Serve 路由，验证旧443根路由仍代理到原4387，Funnel也只在443。OpenMuse loopback `/health` 和 Mac 上三种 `curl` HTTPS 检查（默认、绕过代理、固定 tailnet IP）通过；OpenMuse `URLSession` 报 SecureTransport `-9816`。Apple 对该码的定义是服务端关闭会话但未发送通知，不足以判断为证书或 TLS 握手校验错误；具体差异未定位。当前 iPhone 的 Tailscale 节点离线，尚未真机配对，不能把 Serve 路由存在视为跨设备可用。待手机连入后分别验证 DNS、HTTPS、配对和聊天；社区中的 iPhone Serve HTTPS 报告仅作线索，详见 RUNTIME_PROTOCOL。
 
 本页前文记录开工授权前状态。用户2026-10-10以D31明确进入代码阶段，替代此前“仍待授权”的门槛；无需重问D01–D30。若技术实验迫使改变重要产品承诺，记录失败并回到讨论。

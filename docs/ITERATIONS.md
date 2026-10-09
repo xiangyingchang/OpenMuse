@@ -41,8 +41,8 @@
 - 行为验证：`swift test` 11项通过、0失败；2项按条件跳过（实时 tailnet 地址、Pi 合成 RPC 环境变量）。新增旅行会话测试覆盖“日期未定先轻松追问→下一句不重复旅行关键词仍延续目标→生成路线后存入资源库→用户修改形成新版本”。测试发现并修复了同一对话后续消息未关联已有目标的断点。Pi 合成 RPC 集成此前通过；当前没有真实模型凭证，本轮没有真实供应商聊天。
 - 构建：Mac Debug、iOS Simulator、iOS arm64 未签名构建均通过。iPhone 17 Pro 模拟器安装并启动；欢迎页截图为 `.build/logs/ios-simulator-final-rerun.png`，可见旅行入口、模型设置提醒与五个主导航。该截图只证明首页启动，不证明完成 UI 旅行交互。
 - Mac 交付：`dist/OpenMuse.app/` 已更新至 0.1.0 (build 2)，x86_64、ad-hoc 签名，本机 `codesign --verify --deep --strict` 通过；App 正在运行。本机服务仅监听 `127.0.0.1:4388`，`/health` 返回 `OpenMuse Mac`。该包为当前 Mac 可直接打开的 Debug 版本，不是公证发布包。
-- 连接实测：本机 `curl` 与先前的 Tailscale HTTPS `curl` 返回200；既有443路由/Funnel保持原状态，OpenMuse 使用独立8443 `/openmuse` Serve。OpenMuse `URLSession` 到同一 `.ts.net` 地址仍报 TLS `-9816`，因此 iPhone 配对与跨网络连接未通过；当前手机 Tailscale 节点离线，未进行 iPhone 真机验收。启用路由前现增加“无法读取现有 Serve 配置即拒绝更改”的保护。
+- 连接实测：本机 `curl`、显式绕过代理的 `curl`、强制解析到 tailnet IP 的 `curl` 均对 Tailscale HTTPS 8443 返回200，证书校验结果为0；既有443路由/Funnel保持原状态，OpenMuse 使用独立8443 `/openmuse` Serve。OpenMuse `URLSession` 到同一 `.ts.net` 地址报告 SecureTransport `-9816`；Apple 对应码为服务端关闭会话但未发送通知，不足以判定证书校验失败，具体差异未定位。iPhone 配对与跨网络连接尚未验收；当前手机 Tailscale 节点离线，未进行 iPhone 真机测试。启用路由前现增加“无法读取现有 Serve 配置即拒绝更改”的保护。
 - 真机限制：iOS arm64 仅无签名构建成功。Xcode 尚无 Apple Account/开发描述文件，且设备未处于可测试状态；没有把模拟器说成真机安装。用户需要登录 Xcode 的 Apple Account（免费 Personal Team）并解锁/连接 iPhone 后，才能继续签名安装和真实链路测试。
 - 未完成：真实 OpenAI/DeepSeek/自定义服务聊天；Pi 电脑文件/浏览器工具；同步与冲突合并；离线小环境、后台恢复；动态、点子、dreaming、QQ/Notion/Obsidian/邮箱连接器；iPhone 真机 UI/耗电验收。Tailscale 桥接目前只代理模型回合，不传输目标、消息历史、记忆或构件。
 - 证据：忽略的本地日志 `.build/logs/swift-test-final-rerun.log`、`macos-final-rerun.log`、`ios-simulator-final-rerun.log`、`ios-device-final-rerun.log`、模拟器截图 `ios-simulator-final-rerun.png`；Mac 可运行包 `dist/OpenMuse.app/`。真机签名失败旧日志 `.build/ios-signed-build.log`。所有 Muse 私人截图仍留在被 Git 忽略的 `.research-local/`。
-- 下一步：优先解决 iPhone `URLSession` 对 Tailscale HTTPS 的 TLS 错误并做真机配对；同时由用户在 App 设置中直接录入自己的模型凭证后验收真实聊天。之后继续 K07 同步/检查点和 Mac 工具授权，不改变完整一期目标。
+- 下一步：先用在线 iPhone 验证实际 DNS/HTTPS/配对，再针对 Mac `URLSession` 的会话关闭错误定位客户端差异；由用户在 App 设置中直接录入自己的模型凭证后验收真实聊天。之后继续 K07 同步/检查点和 Mac 工具授权，不改变完整一期目标。
