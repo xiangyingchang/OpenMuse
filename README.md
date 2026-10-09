@@ -19,6 +19,10 @@
 
 iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交互结构参考 Muse。手机后台长期执行仍是待验证边界，不能以同步或保活代码替代真实设备证明。
 
+## 讨论与迭代查询
+
+从[讨论索引](docs/DISCUSSIONS.md)查询历史修正、[决定](docs/DECISIONS.md)、[待决事项](docs/STARTUP_REVIEW.md)和[迭代记录](docs/ITERATIONS.md)。新增[设计原则](docs/DESIGN_PRINCIPLES.md)及[双端与文件关系](docs/DEVICE_AND_FILES.md)。
+
 ## 讨论文档
 
 1. [产品需求](docs/PRD.md)
