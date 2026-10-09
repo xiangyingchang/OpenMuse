@@ -1,5 +1,5 @@
 {
-  "review_date": "2026-10-09",
+  "review_date": "2026-10-10",
   "repositories": [
     {
       "repository": "OpenMinis/OpenMinis",
@@ -70,7 +70,11 @@
         "nanomuse/memory/consolidate.py",
         "nanomuse/goals/store.py",
         "nanomuse/sentinel/grants.py",
-        "nanomuse/sentinel/gate.py"
+        "nanomuse/sentinel/gate.py",
+        "android/src/android/app/src/main/java/io/github/nanomuse/onboarding/FirstConversation.kt",
+        "android/src/android/app/src/main/java/io/github/nanomuse/sysfiles/SystemFiles.kt",
+        "android/src/android/app/src/main/java/com/openminis/app/data/repository/MemoryRepository.kt",
+        "nanomuse/agent/core.py"
       ],
       "inspection_scope": "README, license and targeted architecture/runtime source excerpts; fetched paths are not all fully audited"
     },
@@ -105,7 +109,8 @@
     "https://developer.apple.com/icloud/cloudkit/",
     "https://developer.apple.com/app-store/review/guidelines/",
     "https://developer.apple.com/documentation/BackgroundTasks/refreshing-and-maintaining-your-app-using-background-tasks",
-    "https://developer.apple.com/videos/play/wwdc2025/227/"
+    "https://developer.apple.com/videos/play/wwdc2025/227/",
+    "https://research.meta.ai/blog/security-and-safety-for-ai-agents-our-approach-with-muse"
   ],
   "limitations": [
     "Muse app not authenticated or exercised",
@@ -113,5 +118,18 @@
     "No reference app build or device acceptance",
     "No domestic direct-network test",
     "Notion/mail provider-specific integration not researched until provider chosen"
+  ],
+  "community_artifacts": [
+    {
+      "repository": "win4r/MuseAI-Skills",
+      "commit": "38bbb45a2c5a0f70de975f6387385770b9ad8aac",
+      "provenance": "unofficial public archive; authenticity not independently verified",
+      "license": "no uniform redistribution license established; no source content copied",
+      "inspection_scope": "targeted docs and memory.claims/entries schema excerpts only; not full audit",
+      "analysis": "MUSE_MEMORY_RESEARCH.md"
+    }
+  ],
+  "user_supplied_evidence": [
+    "Muse SOUL persona mechanism and UI description supplied 2026-10-10; full text not republished"
   ]
 }

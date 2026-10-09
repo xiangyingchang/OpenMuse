@@ -29,6 +29,9 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 6. [落地节奏和验收](docs/ROADMAP.md)
 7. [已确认与待决策事项](docs/DECISIONS.md)
 8. [证据版本快照](docs/SOURCES.json)
+9. [轻松首聊：旅行计划](docs/ONBOARDING_TRAVEL.md)
+10. [核心文件、记忆与迁移](docs/MEMORY_STORAGE.md)
+11. [Muse 记忆机制的证据分层](docs/MUSE_MEMORY_RESEARCH.md)
 
 ## 开源与命名
 

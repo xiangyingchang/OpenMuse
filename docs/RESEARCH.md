@@ -59,3 +59,7 @@ README 给出 Swift/SwiftUI iOS、iSH/Alpine 小环境、原生工具和自行�
 | Pi | macOS 模型与工具执行适配 | 自带产品记忆和系统级权限隔离 |
 
 详细版本和抽查路径在 [SOURCES.json](SOURCES.json)。所有未实测项目保留为待验证；阶段建议属于本项目判断，不是上游承诺。
+
+## 2026-10-10 专项补充
+
+新增 [Muse 文件与记忆证据分层](MUSE_MEMORY_RESEARCH.md)：官方资料、用户提供的 SOUL 机制、来源未独立验证的社区归档、nanoMuse Android/Python 实现分别说明。没有发现官方公开完整记忆算法；据此提出原创的 [长期存储方案](MEMORY_STORAGE.md)，不是宣称复制了闭源服务端。
