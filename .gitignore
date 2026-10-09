@@ -15,6 +15,7 @@ secrets/
 node_modules/
 .build/
 DerivedData/
+dist/OpenMuse.app/
 
 # Local upstream research originals and private observations; never publish
 .research-local/

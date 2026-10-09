@@ -1,0 +1,85 @@
+name: OpenMuse
+options:
+  bundleIdPrefix: org.openmuse
+  deploymentTarget:
+    iOS: "17.0"
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  OpenMuseCore:
+    path: .
+targets:
+  OpenMuseiOS:
+    type: application
+    platform: iOS
+    info:
+      path: Config/OpenMuse-iOS-Info.plist
+      properties:
+        CFBundleDisplayName: OpenMuse
+        CFBundleShortVersionString: 0.1.0
+        CFBundleVersion: "1"
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        "UISupportedInterfaceOrientations~ipad":
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    sources:
+      - path: Apps/iOS
+    dependencies:
+      - package: OpenMuseCore
+        product: OpenMuseCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios
+        PRODUCT_NAME: OpenMuse
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIUserInterfaceStyle: Automatic
+        SWIFT_VERSION: 5.9
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+  OpenMuseMac:
+    type: application
+    platform: macOS
+    sources:
+      - path: Apps/macOS
+    dependencies:
+      - package: OpenMuseCore
+        product: OpenMuseCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.mac
+        PRODUCT_NAME: OpenMuse
+        MARKETING_VERSION: 0.1.0
+        CURRENT_PROJECT_VERSION: 1
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
+        INFOPLIST_KEY_NSMainStoryboardFile: ""
+        SWIFT_VERSION: 5.9
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_STYLE: Automatic
+schemes:
+  OpenMuseiOS:
+    build:
+      targets:
+        OpenMuseiOS: all
+    run:
+      config: Debug
+  OpenMuseMac:
+    build:
+      targets:
+        OpenMuseMac: all
+    run:
+      config: Debug

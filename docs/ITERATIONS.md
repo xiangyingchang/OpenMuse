@@ -26,3 +26,11 @@
 - 新默认值为制定方案而非用户逐项批准；实施证据不得由文档检查替代。
 
 本轮检查通过：变更Markdown本地引用/围栏、git diff --check、104张原图SHA-256、10张页面图引用存在、K01–K16编号完整、研究原件未跟踪。仅为文档和证据检查，非应用验收。
+
+## 2026-10-10：首个双端应用切片
+
+- 范围：D31、K01–K05 首轮骨架；SwiftUI 双端界面、SQLite 结构化记录、SOUL/USER/GLOBAL/HEARTBEAT 等 Markdown 修订、模型设置/钥匙串、旅行目标与构件、活动状态、Pi RPC 适配。
+- 检查：普通 `swift test` 6 项通过、0 失败；按设计跳过 1 项需要本地 Pi 夹具的集成测试。随后用合成 SSE 服务运行该 Pi RPC 集成测试，1 项通过。测试覆盖本地重开与修订、结构化目标、未来数据库版本保护、URL 安全校验、按服务端点区分密钥、OpenAI 兼容请求/响应与 Pi RPC 生命周期。没有访问真实模型。Mac Debug、iOS Simulator 和 iOS arm64 未签名构建均通过；Mac App 复制到 `dist/OpenMuse.app` 后启动，iPhone 17 Pro 模拟器重装并启动成功，首屏截图见 `.build/logs/ios-simulator-final.png`。
+- 未完成：用户尚未在 Xcode 登录 Apple Account，iPhone 真机安装暂阻塞；真实 API 密钥/端点未设置，未完成真实模型聊天；Pi 工具关闭，Mac 本地电脑操作未实现；Tailscale 配对/同步、手机离线推理、小环境、后台恢复、连接器、动态、点子、dreaming 未实现。
+- 临时方案：先以本机 SQLite/Markdown 保证离线可读；密钥按服务端点分别存钥匙串；可编辑记忆作为单独用户级参考数据传入模型，不提升为系统指令。Mac 本地工具待权限范围与隔离完成再开放。
+- 证据：`.build/logs/swift-test.log`、`pi-rpc-integration.log`、`macos-build.log`、`ios-simulator-build.log`、`ios-device-unsigned-build.log` 与 `ios-simulator-final.png`（本地忽略）；`dist/OpenMuse.app/` 是本机 Intel Mac 可打开的 adhoc 签名 Debug 包（本地忽略，不提交二进制）。真机签名失败日志保留在 `.build/ios-signed-build.log`。私人 Muse 原图仍仅位于 `.research-local/`，未复制到应用或公开文件。

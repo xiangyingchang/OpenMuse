@@ -1,8 +1,8 @@
 # OpenMuse
 
-一个持续认识你、陪你把想做的事情一步步做成的开源个人 AI。面向中国用户，计划提供 iOS 与 macOS 客户端，可自定义模型。
+一个持续认识你、陪你把想做的事情一步步做成的开源个人 AI。面向中国用户，正在开发 iOS 与 macOS 客户端，并支持自定义模型。
 
-> 当前状态：需求与技术调研阶段。没有可运行 App；尚未批准进入实现。
+> 当前状态（2026-10-10）：双端原生工程、本机持久化和首个体验界面已实现。Mac Debug App 已构建并启动，iOS 模拟器 App 已安装并启动；iPhone 真机签名等待在 Xcode 登录 Apple Account。尚未在 App 中配置真实模型凭证，跨设备同步/Tailscale连接尚未实现。详见[迭代记录](docs/ITERATIONS.md)。
 
 长期目标是让一个人拥有可携带、可纠正、会随生活变化而成长的 AI 陪伴者。产品价值来自真实帮助、连续理解与目标进展。
 
@@ -23,13 +23,17 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 
 从[讨论索引](docs/DISCUSSIONS.md)查询历史修正、[决定](docs/DECISIONS.md)、[待决事项](docs/STARTUP_REVIEW.md)和[迭代记录](docs/ITERATIONS.md)。新增[设计原则](docs/DESIGN_PRINCIPLES.md)及[双端与文件关系](docs/DEVICE_AND_FILES.md)。
 
-当前补齐方案从[开工状态](docs/STARTUP_REVIEW.md)进入：连接/接管、构件、行为规则、页面规格和实施任务均已制定；尚无可运行App。
+从[开工状态](docs/STARTUP_REVIEW.md)查询方案与实际实现进度。请以[迭代记录](docs/ITERATIONS.md)中的测试、构建和设备证据为准。
 
 ## 讨论文档
 
 1. [产品需求](docs/PRD.md)
 2. [交互与典型旅程](docs/EXPERIENCE.md)
 3. [公开资料调研](docs/RESEARCH.md)
+
+## 本地构建
+
+需要 Xcode、Swift 和 XcodeGen。运行 `xcodegen generate` 后打开 `OpenMuse.xcodeproj`，选择 `OpenMuseMac` 或 `OpenMuseiOS` scheme。核心测试和 Pi 本地夹具见[开发验证说明](docs/DEV_TESTING.md)。
 4. [技术方案与取舍](docs/ARCHITECTURE.md)
 5. [手机后台执行专项](docs/IOS_BACKGROUND.md)
 6. [落地节奏和验收](docs/ROADMAP.md)
@@ -48,6 +52,6 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 
 ## 开源与命名
 
-本仓库当前原创文档使用 MIT 许可证。未来应用代码的许可证必须与实际复用的上游组件共同确定；尚未导入任何上游代码。公开仓库不保存个人对话、记忆、凭证或私人连接器数据。
+本仓库原创文档与应用代码使用 MIT 许可证。当前没有导入上游代码；以后如复用上游组件，会先核对许可证和分发要求。公开仓库不保存个人对话、记忆、凭证或私人连接器数据。
 
 OpenMuse 是暂定工作名。本项目独立于 Meta Muse、nanoMuse、OpenMinis、Lody 及已有的 CopilotKit/OpenMuse 项目，正式发布前会重新确认品牌命名。
