@@ -15,7 +15,7 @@
 
 ## 已确定的方向
 
-iPhone 可独立运行；macOS 底层优先采用 Pi；不依赖自建云端执行服务器；数据同步优先研究 iCloud。模型 API 可以是用户选择的远程服务，“无云端执行服务器”不代表所有推理都在本地。
+一期以 Muse 的交互和运行机制为对齐目标。Mac 在线连接本机 Pi 执行，Mac 离线由 iPhone 接手其支持的任务；首期支持 OpenAI、DeepSeek 和自定义模型 API；不依赖自建云端执行服务器；数据同步优先研究 iCloud。模型 API 可以是用户选择的远程服务，“无云端执行服务器”不代表所有推理都在本地。
 
 iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交互结构参考 Muse。手机后台长期执行仍是待验证边界，不能以同步或保活代码替代真实设备证明。
 
@@ -35,6 +35,10 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 12. [Muse 持续研究档案：记忆维护与 dreaming](docs/muse-research/README.md)
 13. [其他 AI 记忆迁移与预埋提示词](docs/MEMORY_TRANSFER.md)
 14. [iOS/macOS 技术选型推荐](docs/APP_STACK.md)
+15. [一期 Muse 对齐与需求验收](docs/PHASE1_PARITY.md)
+16. [Muse iOS 真机交互记录](docs/muse-research/IOS_INTERACTIONS_2026-10-10.md)
+
+长期“电脑”入口将参考 UU 远程，连接个人电脑的远程桌面；连接与控制方案待设计。
 
 ## 开源与命名
 
