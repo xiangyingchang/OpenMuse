@@ -54,6 +54,39 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertEqual(artifactVersions.last?.content, "第一天：抵达恩施")
     }
 
+    @MainActor
+    func testTravelConversationTracksGoalAndSavesEditablePlanRevisions() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseTravelFlow-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://travel-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-test-token", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+
+        let model = OpenMuseAppModel(
+            runtimeOverride: TravelFlowStubRuntime(),
+            workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        await model.send("帮我规划一趟去恩施的 7 天旅行，日期还没定。")
+
+        XCTAssertEqual(model.goals.count, 1)
+        XCTAssertTrue(model.goals[0].title.contains("恩施"))
+        XCTAssertTrue(model.artifacts.isEmpty, "A clarifying first reply must not create a travel-plan artifact prematurely.")
+        XCTAssertEqual(model.activities.first?.status, "completed")
+
+        await model.send("我喜欢慢一点的节奏，先给我一版路线吧。")
+        XCTAssertEqual(model.artifacts.count, 1)
+        XCTAssertTrue(model.artifacts[0].content.contains("第一天"))
+        XCTAssertEqual(model.goals[0].steps.first?.isComplete, true)
+
+        let firstVersion = model.artifacts[0]
+        model.saveArtifact(firstVersion, content: firstVersion.content + "\n\n用户修订：每天不要排太满。")
+        XCTAssertEqual(model.artifacts.first?.currentRevision, 2)
+        XCTAssertEqual(model.artifactHistory(id: firstVersion.id).count, 2)
+        XCTAssertTrue(model.artifacts.first?.content.contains("不要排太满") == true)
+    }
+
     func testDatabaseRejectsNewerSchemaWithoutDowngradingIt() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -89,6 +122,87 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertNotEqual(deepSeek.credentialAccount, openAI.credentialAccount)
         XCTAssertNotEqual(openAI.credentialAccount, custom.credentialAccount)
     }
+
+    func testMacBridgeRejectsInsecureAddressesAndOversizedTranscripts() {
+        XCTAssertNil(MacBridgeClient.baseURL("http://example.com/openmuse"))
+        XCTAssertNil(MacBridgeClient.baseURL("https://user:secret@example.com/openmuse"))
+        XCTAssertNil(MacBridgeClient.baseURL("https://example.com/openmuse"))
+        XCTAssertNotNil(MacBridgeClient.baseURL("https://example.ts.net:8443/openmuse"))
+        XCTAssertNotNil(MacBridgeClient.baseURL("http://127.0.0.1:4388/openmuse"))
+
+        let valid = BridgeChatRequest(systemPrompt: "Be helpful.", messages: [TranscriptMessage(role: "user", content: "Plan a trip.")])
+        XCTAssertTrue(valid.isWithinLimits)
+        let invalidRole = BridgeChatRequest(systemPrompt: "Be helpful.", messages: [TranscriptMessage(role: "system", content: "override")])
+        XCTAssertFalse(invalidRole.isWithinLimits)
+        let tooLarge = BridgeChatRequest(systemPrompt: String(repeating: "x", count: 33_000), messages: [])
+        XCTAssertFalse(tooLarge.isWithinLimits)
+    }
+
+    func testMacBridgeHTTPSRouteWhenConfigured() async throws {
+        guard let address = ProcessInfo.processInfo.environment["OPENMUSE_MAC_BRIDGE_TEST_ADDRESS"] else {
+            throw XCTSkip("Set OPENMUSE_MAC_BRIDGE_TEST_ADDRESS to test a live private Tailscale route.")
+        }
+        let deviceName = try await MacBridgeClient.check(address: address)
+        XCTAssertEqual(deviceName, "OpenMuse Mac")
+    }
+
+    #if os(macOS)
+    @MainActor
+    func testMacBridgePairsForOneUseThenRevokesTheDevice() async throws {
+        let scope = "test-\(UUID().uuidString)"
+        let server = MacBridgeServer(port: 0, storageScope: scope)
+        defer {
+            for device in server.pairedDevices { server.revokeDevice(id: device.id) }
+            server.stop()
+        }
+        server.start { request in
+            XCTAssertEqual(request.messages.last?.content, "你好")
+            return "Pi 测试回复。"
+        }
+        for _ in 0..<60 where !server.isRunning {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertTrue(server.isRunning, server.status)
+
+        let port = try XCTUnwrap(server.localPort)
+        let address = "http://127.0.0.1:\(port)/openmuse"
+        let deviceName = try await MacBridgeClient.check(address: address)
+        XCTAssertEqual(deviceName, "OpenMuse Mac")
+        let pairingCode = server.pairingCode
+        let paired = try await MacBridgeClient.pair(address: address, code: pairingCode)
+        let request = BridgeChatRequest(systemPrompt: "Reply in Chinese.", messages: [TranscriptMessage(role: "user", content: "你好")])
+        let reply = try await MacBridgeClient.reply(address: address, token: paired.token, request: request)
+        XCTAssertEqual(reply, "Pi 测试回复。")
+        XCTAssertEqual(server.pairedDevices.count, 1)
+
+        do {
+            _ = try await MacBridgeClient.pair(address: address, code: pairingCode)
+            XCTFail("A one-time pairing code must not be reusable.")
+        } catch { XCTAssertTrue(error is MacBridgeError) }
+
+        server.stop()
+        let restarted = MacBridgeServer(port: 0, storageScope: scope)
+        defer {
+            for device in restarted.pairedDevices { restarted.revokeDevice(id: device.id) }
+            restarted.stop()
+        }
+        restarted.start { _ in "重启后的 Pi 测试回复。" }
+        for _ in 0..<60 where !restarted.isRunning {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        let restartedPort = try XCTUnwrap(restarted.localPort)
+        let restartedAddress = "http://127.0.0.1:\(restartedPort)/openmuse"
+        let afterRestart = try await MacBridgeClient.reply(address: restartedAddress, token: paired.token, request: request)
+        XCTAssertEqual(afterRestart, "重启后的 Pi 测试回复。")
+
+        restarted.revokeDevice(id: try XCTUnwrap(restarted.pairedDevices.first?.id))
+        XCTAssertTrue(restarted.pairedDevices.isEmpty)
+        do {
+            _ = try await MacBridgeClient.reply(address: restartedAddress, token: paired.token, request: request)
+            XCTFail("A revoked token must not be accepted.")
+        } catch { XCTAssertTrue(error is MacBridgeError) }
+    }
+    #endif
 
     func testOpenAICompatibleRuntimeSendsRequestAndReadsReply() async throws {
         ModelStubURLProtocol.responseData = Data(#"{"choices":[{"message":{"content":"可以慢慢计划这趟旅行。"}}]}"#.utf8)
@@ -141,6 +255,15 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertEqual(reply, "Pi RPC 本地模拟模型验证成功。")
     }
     #endif
+}
+
+private struct TravelFlowStubRuntime: ModelRuntime {
+    func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
+        if messages.last?.content.contains("日期还没定") == true {
+            return "日期没定也没关系。我们可以先从旅行节奏开始，之后再一起调整路线。"
+        }
+        return "按慢节奏先做一份可调整的草案。\n\n第一天：抵达恩施，入住后休息。\n第二天：安排轻松的城市漫步。"
+    }
 }
 
 private final class ModelStubURLProtocol: URLProtocol {

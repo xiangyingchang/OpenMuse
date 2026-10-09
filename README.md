@@ -2,7 +2,7 @@
 
 一个持续认识你、陪你把想做的事情一步步做成的开源个人 AI。面向中国用户，正在开发 iOS 与 macOS 客户端，并支持自定义模型。
 
-> 当前状态（2026-10-10）：双端原生工程、本机持久化和首个体验界面已实现。Mac Debug App 已构建并启动，iOS 模拟器 App 已安装并启动；iPhone 真机签名等待在 Xcode 登录 Apple Account。尚未在 App 中配置真实模型凭证，跨设备同步/Tailscale连接尚未实现。详见[迭代记录](docs/ITERATIONS.md)。
+> 当前状态（2026-10-10）：双端原生工程、本机持久化和首个体验界面已实现。Mac Debug App 已构建并启动，iOS 模拟器 App 已安装并启动；iPhone 真机签名等待在 Xcode 登录 Apple Account。Mac 的 loopback 桥接、一次性配对与独立 Tailscale Serve 路由已实现；本机配对生命周期测试通过，但 Mac 的 `URLSession` 对 Tailscale HTTPS 自连接仍失败，iPhone 当前离线，因此跨设备能力尚未验收。真实模型凭证、资料同步和 Pi 电脑工具也未完成。详见[迭代记录](docs/ITERATIONS.md)与[双端协议](docs/RUNTIME_PROTOCOL.md)。
 
 长期目标是让一个人拥有可携带、可纠正、会随生活变化而成长的 AI 陪伴者。产品价值来自真实帮助、连续理解与目标进展。
 
@@ -16,6 +16,8 @@
 ## 已确定的方向
 
 一期以 Muse 的交互和运行机制为对齐目标。Mac 在线连接本机 Pi 执行，Mac 离线由 iPhone 接手其支持的任务；首期支持 OpenAI、DeepSeek 和自定义模型 API；不依赖自建云端执行服务器；数据同步优先研究 iCloud。模型 API 可以是用户选择的远程服务，“无云端执行服务器”不代表所有推理都在本地。
+
+当前连接实验只转发模型回合，不会同步消息、记忆、目标或构件，也没有打开 Mac 文件和浏览器工具；Pi 工具保持关闭。不能把模型代理称为电脑执行。Mac 首次启用时会在独立 HTTPS 8443 端口添加 `/openmuse` Serve 路由；若端口已被其他服务占用，会停止并保留原设置。它不修改现有443路由，也不启用 Funnel。
 
 iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交互结构参考 Muse。手机后台长期执行仍是待验证边界，不能以同步或保活代码替代真实设备证明。
 

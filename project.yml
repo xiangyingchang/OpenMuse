@@ -17,7 +17,7 @@ targets:
       properties:
         CFBundleDisplayName: OpenMuse
         CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: "1"
+        CFBundleVersion: "2"
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -38,7 +38,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios
         PRODUCT_NAME: OpenMuse
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
@@ -61,7 +61,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.mac
         PRODUCT_NAME: OpenMuse
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 1
+        CURRENT_PROJECT_VERSION: 2
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity

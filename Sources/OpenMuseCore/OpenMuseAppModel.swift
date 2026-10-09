@@ -15,6 +15,13 @@ public final class OpenMuseAppModel: ObservableObject {
     @Published public private(set) var startupError: String?
     @Published public private(set) var modelConfiguration: ModelConfiguration
     @Published public var presentedSheet: OpenMuseSheet?
+    @Published public var macBridgeAddress: String
+    @Published public var preferMacWhenAvailable: Bool
+    @Published public private(set) var macBridgePaired: Bool
+
+    #if os(macOS)
+    public let macBridgeServer = MacBridgeServer()
+    #endif
 
     private let database: SQLiteStore?
     private let workspace: WorkspaceFiles?
@@ -22,26 +29,39 @@ public final class OpenMuseAppModel: ObservableObject {
     private let runtime: ModelRuntime
     public let workspaceURL: URL?
 
-    public init() {
-        if let saved = UserDefaults.standard.data(forKey: "openmuse.model.configuration"),
+    public convenience init() {
+        self.init(runtimeOverride: nil, workspaceRootOverride: nil, configurationOverride: nil, startMacBridge: true)
+    }
+
+    init(runtimeOverride: ModelRuntime?, workspaceRootOverride: URL?, configurationOverride: ModelConfiguration?, startMacBridge: Bool) {
+        macBridgeAddress = UserDefaults.standard.string(forKey: "openmuse.bridge.address") ?? ""
+        preferMacWhenAvailable = UserDefaults.standard.object(forKey: "openmuse.bridge.prefer-mac") as? Bool ?? true
+        macBridgePaired = SecureStore.readPairedMacToken() != nil
+        if let configurationOverride {
+            modelConfiguration = configurationOverride
+        } else if let saved = UserDefaults.standard.data(forKey: "openmuse.model.configuration"),
            let decoded = try? JSONDecoder().decode(ModelConfiguration.self, from: saved) {
             modelConfiguration = decoded
         } else {
             modelConfiguration = ModelConfiguration()
         }
 
-        #if os(macOS)
-        runtime = PiRuntime()
-        #else
-        runtime = OpenAICompatibleRuntime()
-        #endif
+        if let runtimeOverride {
+            runtime = runtimeOverride
+        } else {
+            #if os(macOS)
+            runtime = PiRuntime()
+            #else
+            runtime = OpenAICompatibleRuntime()
+            #endif
+        }
 
         var openedDatabase: SQLiteStore?
         var openedWorkspace: WorkspaceFiles?
         var resolvedWorkspaceURL: URL?
         var loadedConversation = ConversationRecord()
         do {
-            let root = try WorkspaceFiles.applicationSupportURL()
+            let root = try workspaceRootOverride ?? WorkspaceFiles.applicationSupportURL()
             let appSupport = root.deletingLastPathComponent()
             let databasePath = appSupport.appendingPathComponent("OpenMuse.sqlite")
             let database = try SQLiteStore(path: databasePath)
@@ -76,6 +96,14 @@ public final class OpenMuseAppModel: ObservableObject {
         workspace = openedWorkspace
         workspaceURL = resolvedWorkspaceURL
         conversation = loadedConversation
+        #if os(macOS)
+        if startMacBridge {
+            macBridgeServer.start { [weak self] request in
+                guard let self else { throw MacBridgeError.unavailable }
+                return try await self.replyToPairedDevice(request)
+            }
+        }
+        #endif
     }
 
     public var hasModelCredential: Bool { SecureStore.readAPIKey(for: modelConfiguration) != nil }
@@ -88,14 +116,43 @@ public final class OpenMuseAppModel: ObservableObject {
 
     public var isModelReady: Bool { modelConfiguration.isReady && hasModelCredential }
 
+    public var canSendMessage: Bool {
+        #if os(iOS)
+        return isModelReady || (preferMacWhenAvailable && macBridgePaired)
+        #else
+        return isModelReady
+        #endif
+    }
+
     public var activeActivity: ActivityRecord? { activities.first(where: { $0.status == "running" }) }
 
     public var contextDescription: String {
         #if os(macOS)
         "Mac Pi · 本机"
         #else
-        "iPhone · 独立模式"
+        macBridgePaired ? "iPhone · 已配对 Mac" : "iPhone · 独立模式"
         #endif
+    }
+
+    public func pairWithMac(address: String, code: String) async throws {
+        _ = try await MacBridgeClient.check(address: address)
+        let paired = try await MacBridgeClient.pair(address: address, code: code)
+        try SecureStore.savePairedMacToken(paired.token)
+        macBridgeAddress = paired.endpoint
+        macBridgePaired = true
+        UserDefaults.standard.set(paired.endpoint, forKey: "openmuse.bridge.address")
+        statusText = "已配对这台 Mac。聊天优先通过 Mac 的 Pi 处理；Mac 不可达时会使用 iPhone 的模型设置。"
+    }
+
+    public func checkPairedMac() async throws -> String {
+        guard !macBridgeAddress.isEmpty, macBridgePaired else { throw MacBridgeError.unavailable }
+        return try await MacBridgeClient.check(address: macBridgeAddress)
+    }
+
+    public func disconnectMac() throws {
+        try SecureStore.deletePairedMacToken()
+        macBridgePaired = false
+        statusText = "已解除这台 iPhone 的 Mac 配对。"
     }
 
     public func beginNewConversation() {
@@ -151,7 +208,7 @@ public final class OpenMuseAppModel: ObservableObject {
             statusText = startupError ?? "本地资料库不可用。"
             return
         }
-        guard isModelReady else {
+        guard canSendMessage else {
             draft = text
             statusText = "先设置一个模型，再继续这段对话。"
             presentedSheet = .settings
@@ -195,13 +252,13 @@ public final class OpenMuseAppModel: ObservableObject {
             </openmuse-reference-data>
             """)
             let transcript = [memoryContext] + messages.suffix(24).map { TranscriptMessage(role: $0.role.rawValue, content: $0.content) }
-            let response = try await runtime.reply(systemPrompt: systemPrompt, messages: transcript, configuration: modelConfiguration, apiKey: SecureStore.readAPIKey(for: modelConfiguration) ?? "")
+            let (response, routeStatus) = try await generateReply(systemPrompt: systemPrompt, messages: transcript)
             let answer = MessageRecord(conversationID: conversation.id, role: .assistant, content: response)
             try database.save(answer, kind: RecordKind.message, id: answer.id)
             messages.append(answer)
             let artifactStatus = goal.flatMap { createOrUpdateTravelArtifact(response, goal: $0, database: database) }
-            finishActivity(activity.id, status: "completed", stage: "已回复；对话和进度已保存在本机。", database: database)
-            statusText = artifactStatus
+            finishActivity(activity.id, status: "completed", stage: routeStatus, database: database)
+            statusText = artifactStatus ?? routeStatus
         } catch {
             let message = error.localizedDescription
             let failed = MessageRecord(conversationID: conversation.id, role: .assistant, content: message, status: "failed")
@@ -212,6 +269,48 @@ public final class OpenMuseAppModel: ObservableObject {
         }
         isSending = false
     }
+
+    private func generateReply(systemPrompt: String, messages: [TranscriptMessage]) async throws -> (String, String) {
+        #if os(iOS)
+        if preferMacWhenAvailable, macBridgePaired, !macBridgeAddress.isEmpty,
+           let token = SecureStore.readPairedMacToken() {
+            do {
+                let request = BridgeChatRequest(systemPrompt: systemPrompt, messages: messages)
+                let answer = try await MacBridgeClient.reply(address: macBridgeAddress, token: token, request: request)
+                return (answer, "已由家里的 Mac 通过 Pi 回复；对话副本保存在 iPhone。")
+            } catch let bridgeError as MacBridgeError {
+                guard isModelReady else { throw bridgeError }
+                let answer = try await runtime.reply(systemPrompt: systemPrompt, messages: messages, configuration: modelConfiguration, apiKey: SecureStore.readAPIKey(for: modelConfiguration) ?? "")
+                switch bridgeError {
+                case .unavailable:
+                    return (answer, "Mac 暂时不可达，已改用 iPhone 的模型。")
+                case .rejected(let detail):
+                    return (answer, "Mac 没有完成这次请求（\(detail)），已改用 iPhone 的模型。")
+                default:
+                    return (answer, "Mac 连接出了问题，已改用 iPhone 的模型。")
+                }
+            } catch {
+                guard isModelReady else { throw error }
+                let answer = try await runtime.reply(systemPrompt: systemPrompt, messages: messages, configuration: modelConfiguration, apiKey: SecureStore.readAPIKey(for: modelConfiguration) ?? "")
+                return (answer, "Mac 连接出了问题，已改用 iPhone 的模型。")
+            }
+        }
+        #endif
+        let answer = try await runtime.reply(systemPrompt: systemPrompt, messages: messages, configuration: modelConfiguration, apiKey: SecureStore.readAPIKey(for: modelConfiguration) ?? "")
+        #if os(iOS)
+        return (answer, "已由 iPhone 的模型回复；对话副本保存在本机。")
+        #else
+        return (answer, "已由这台 Mac 的 Pi 回复；对话和进度已保存在本机。")
+        #endif
+    }
+
+    #if os(macOS)
+    private func replyToPairedDevice(_ request: BridgeChatRequest) async throws -> String {
+        guard modelConfiguration.isReady,
+              let key = SecureStore.readAPIKey(for: modelConfiguration), !key.isEmpty else { throw ModelRuntimeError.missingKey }
+        return try await runtime.reply(systemPrompt: request.systemPrompt, messages: request.messages, configuration: modelConfiguration, apiKey: key)
+    }
+    #endif
 
     public func toggleGoalStep(goalID: String, stepID: String) {
         guard let database, let index = goals.firstIndex(where: { $0.id == goalID }),
@@ -305,9 +404,9 @@ public final class OpenMuseAppModel: ObservableObject {
     }
 
     private func createTravelGoalIfNeeded(from text: String, database: SQLiteStore) -> GoalRecord? {
+        if let existing = goals.first(where: { $0.conversationID == conversation.id }) { return existing }
         let lower = text.lowercased()
         guard ["旅行", "旅游", "行程", "出行", "trip"].contains(where: lower.contains) else { return nil }
-        if let existing = goals.first(where: { $0.conversationID == conversation.id }) { return existing }
 
         let destination = ["恩施", "成都", "大理", "云南", "日本", "京都", "杭州", "新疆"].first(where: text.contains) ?? "旅行目的地"
         let duration = ["7天", "七天", "7 日", "七日"].contains(where: text.contains) ? "7 天" : "旅行"

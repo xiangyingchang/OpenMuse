@@ -74,6 +74,12 @@ public struct ModelSettingsView: View {
                     .padding(16)
                     .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 18))
 
+                    #if os(macOS)
+                    MacBridgeHostPanel(model: model)
+                    #else
+                    iPhoneMacPanel(model: model)
+                    #endif
+
                     VStack(alignment: .leading, spacing: 8) {
                         Label(model.contextDescription, systemImage: "desktopcomputer")
                             .font(.subheadline.weight(.medium)).foregroundStyle(EditorPalette.text)
@@ -82,8 +88,8 @@ public struct ModelSettingsView: View {
                         #else
                         Text("iPhone 直接连接所选模型。没有网络时，已保存的聊天和文件仍可查看。")
                         #endif
-                        Text("消息和相关记忆会发送给你选择的模型服务以生成回复；OpenMuse 当前没有自建执行服务器。")
-                        Text("两台设备之间的认证同步还未接通；现在的内容分别保存在本机。")
+                        Text("配对后，聊天和本轮相关记忆会经过 Tailscale HTTPS 发给 Mac；Pi 使用 Mac 上保存的模型设置。未配对时，iPhone 直接连接这里选择的模型。")
+                        Text("目前只转发模型回合；聊天记录、目标、记忆和构件不会同步到 Mac。Mac 的 Pi 工具仍关闭，尚不能读写 Mac 文件或操作浏览器。")
                     }
                     .font(.caption)
                     .foregroundStyle(EditorPalette.subtle)
@@ -135,6 +141,167 @@ public struct ModelSettingsView: View {
         isTesting = false
     }
 }
+
+#if os(macOS)
+private struct MacBridgeHostPanel: View {
+    @ObservedObject private var model: OpenMuseAppModel
+    @ObservedObject private var server: MacBridgeServer
+
+    init(model: OpenMuseAppModel) {
+        self.model = model
+        self.server = model.macBridgeServer
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("连接家里的 Mac", systemImage: "desktopcomputer.and.arrow.down")
+                .font(.headline).foregroundStyle(EditorPalette.text)
+            Text(server.status).font(.caption).foregroundStyle(EditorPalette.subtle)
+            Text(server.privateRouteStatus)
+                .font(.caption).foregroundStyle(server.privateRouteEnabled ? .green : EditorPalette.subtle)
+            if let address = server.deviceAddress {
+                Text(address)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .foregroundStyle(EditorPalette.text)
+            } else {
+                Text("没有找到已登录的 Tailscale。连接后重启 OpenMuse。")
+                    .font(.caption).foregroundStyle(EditorPalette.subtle)
+            }
+            if !server.privateRouteEnabled {
+                Button {
+                    server.enablePrivateLink()
+                } label: {
+                    Label("启用 Tailscale 私有连接", systemImage: "lock.shield")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!server.isRunning)
+            }
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("一次性配对码").font(.caption).foregroundStyle(EditorPalette.subtle)
+                    Text(server.pairingCode).font(.system(.title3, design: .monospaced).weight(.semibold)).tracking(1.5).foregroundStyle(EditorPalette.text)
+                }
+                Spacer()
+                Button("重新生成") { server.rotatePairingCode() }
+                    .buttonStyle(.bordered)
+            }
+            if server.pairedDevices.isEmpty {
+                Text("还没有已配对设备。")
+                    .font(.caption).foregroundStyle(EditorPalette.subtle)
+            } else {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("已授权设备").font(.caption).foregroundStyle(EditorPalette.subtle)
+                    ForEach(server.pairedDevices) { device in
+                        HStack(spacing: 8) {
+                            Label(device.name, systemImage: "iphone")
+                                .font(.caption).foregroundStyle(EditorPalette.text)
+                            Spacer()
+                            Button("撤销") { server.revokeDevice(id: device.id) }
+                                .font(.caption).buttonStyle(.borderless).foregroundStyle(.red)
+                        }
+                    }
+                }
+            }
+            Text("配对码 5 分钟有效且只能使用一次。配对后 iPhone 会优先把聊天交给这台 Mac 的 Pi。")
+                .font(.caption).foregroundStyle(EditorPalette.subtle)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 18))
+    }
+}
+#endif
+
+#if os(iOS)
+private struct iPhoneMacPanel: View {
+    @ObservedObject private var model: OpenMuseAppModel
+    @State private var pairingCode = ""
+    @State private var isPairing = false
+    @State private var message: String?
+    @State private var succeeded = false
+
+    init(model: OpenMuseAppModel) { self.model = model }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("连接家里的 Mac", systemImage: "desktopcomputer.and.arrow.down")
+                .font(.headline).foregroundStyle(EditorPalette.text)
+            Text("两台设备都需要连接同一个 Tailscale 网络。Mac 上的 OpenMuse 必须保持运行。")
+                .font(.caption).foregroundStyle(EditorPalette.subtle)
+            TextField("https://你的 Mac Tailscale 地址:8443/openmuse", text: $model.macBridgeAddress)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .keyboardType(.URL)
+            HStack(spacing: 8) {
+                SecureField("Mac 屏幕上的一次性配对码", text: $pairingCode)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.characters)
+                    .autocorrectionDisabled()
+                Button {
+                    Task { await pair() }
+                } label: {
+                    if isPairing { ProgressView().controlSize(.small) } else { Text("配对") }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(isPairing || model.macBridgeAddress.isEmpty || pairingCode.isEmpty)
+            }
+            Toggle("Mac 可用时优先通过 Mac 的 Pi 回复", isOn: $model.preferMacWhenAvailable)
+                .font(.caption)
+                .tint(EditorPalette.blue)
+                .onChange(of: model.preferMacWhenAvailable) { _, value in
+                    UserDefaults.standard.set(value, forKey: "openmuse.bridge.prefer-mac")
+                }
+            if model.macBridgePaired {
+                HStack {
+                    Label("已配对", systemImage: "checkmark.shield.fill").foregroundStyle(.green)
+                    Spacer()
+                    Button("检查连接") { Task { await checkConnection() } }.buttonStyle(.bordered)
+                    Button("解除", role: .destructive) {
+                        do { try model.disconnectMac(); message = "已解除配对。"; succeeded = true }
+                        catch { message = error.localizedDescription; succeeded = false }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .font(.caption)
+            }
+            if let message {
+                Text(message).font(.caption).foregroundStyle(succeeded ? .green : EditorPalette.subtle)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 18))
+    }
+
+    @MainActor
+    private func pair() async {
+        isPairing = true
+        message = nil
+        succeeded = false
+        do {
+            try await model.pairWithMac(address: model.macBridgeAddress, code: pairingCode)
+            pairingCode = ""
+            message = "已安全配对。现在可通过 Mac 的 Pi 对话。"
+            succeeded = true
+        } catch { message = error.localizedDescription }
+        isPairing = false
+    }
+
+    @MainActor
+    private func checkConnection() async {
+        do {
+            let device = try await model.checkPairedMac()
+            message = "已连接：\(device)"
+            succeeded = true
+        } catch {
+            message = error.localizedDescription
+            succeeded = false
+        }
+    }
+}
+#endif
 
 public struct MemoryFilesView: View {
     @ObservedObject private var model: OpenMuseAppModel

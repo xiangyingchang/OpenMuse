@@ -38,3 +38,15 @@
 ## T12：2026-10-10 首轮运行边界
 
 首轮采用共享 Swift Package、XcodeGen 双端原生工程、本地 SQLite/Markdown 与按模型端点隔离的本机钥匙串密钥。Mac Pi 先只承担模型回合且关闭工具；在授权工作区、隔离、取消和日志完成前，不开放本机文件/命令工具。Mac Debug 与 iOS 模拟器已能启动；真机签名待用户登录 Xcode，真实模型对话待配置密钥。该执行限制是可逆实现选择，不缩小一期需求；详见 STARTUP_REVIEW 与 ITERATIONS。
+
+## T13：2026-10-10 Mac 与 iPhone 的首轮连接
+
+落实双端关系时，先实现了 Mac 私有配对和 Pi 聊天代理。连接使用独立 HTTPS 8443 `/openmuse` 路由、Mac loopback 服务、短期一次性码、钥匙串凭证和设备撤销；不复用 Lody 的端口或凭证。单元/集成测试已覆盖本机配对生命周期，但当前 tailnet 路由、真实模型调用和蜂窝真机还需验证。聊天桥接不代表工作区同步或 Mac 工具执行。
+
+尚未解决的实现边界：要让 Pi 安全读写指定 Mac 文件并打开浏览器，需要确定沙箱方案、目录授权界面、审批/取消和副作用日志。当前首轮关闭 Pi 工具是安全默认；建议下一步只开放 OpenMuse 专属任务目录中的受限文件操作，再独立验证浏览器动作，绝不暴露任意 shell。此建议待后续讨论，暂不改变一期需求。
+
+## T14：2026-10-10 Tailscale HTTPS 的 iPhone 验收风险
+
+当前 Mac 的 Serve HTTPS 路由从 `curl` 可用，但相同路由的 Swift `URLSession` 自连接测试失败，错误码 `-9816`；本机 loopback HTTP 正常。尚无在线iPhone测试，因此根因未定。Tailscale公开问题[#19147](https://github.com/tailscale/tailscale/issues/19147)报告过iPhone无法打开 `.ts.net` Serve HTTPS；一位贡献者在其中将一组案例归因到第三方DoH/DNS覆盖，另有后续用户报告尚无解决方案。问题记录是排查线索，不证明OpenMuse或该手机存在相同问题。
+
+本轮不降级为明文、不跳过证书验证、不改动Shadowrocket/VPN/DNS。等iPhone解锁并连接Tailscale后，先测MagicDNS解析与Mac的HTTPS健康地址；若失败，再按设备日志判断要不要试独立网络配置，先回退、单变量验证。备选架构另行记录和讨论，不作为当前既定实现。

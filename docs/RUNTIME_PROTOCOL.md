@@ -10,6 +10,16 @@
 
 本地Lody参考：SELF_HOSTED的loopback+Serve+配对；bridge/src/config.mjs的项目范围；server.mjs的Bearer认证/bootstrap；mobile/src/local/bridge.ts的HTTPS/WebSocket和连接状态。当前HEAD为2ebdcdbce7d43cae00770c295c020a832d404960，工作区有未提交修改，不能把所读文件全部归于该commit；具体哈希保存在本地研究manifest。仅借鉴协议，不复制私有代码或其凭证；未启动/重启/修改Lody或Tailscale。
 
+## 首轮已实现的连接切片（2026-10-10）
+
+Mac App 打开时，OpenMuse 服务绑定 `127.0.0.1:4388`；iPhone 不直接访问局域网端口。Mac 设置页可为独立的 Tailscale Serve 入口启用 HTTPS `8443`、`/openmuse`，转发到该 loopback 服务。现有 `443` 路由不复用；8443 已有配置时拒绝覆盖；设置代码会比较其他端口路由，只有确认既有路由保持一致才报告成功。此专用端口通过 Serve 建立，不调用 Funnel。Tailscale Serve 可把本机服务限定在同一 tailnet，Funnel 才会把服务发布到公网；具体端口和 path 仍须用真实客户端验证。[Tailscale Serve](https://tailscale.com/docs/features/tailscale-serve) 与 [Serve CLI](https://tailscale.com/docs/reference/tailscale-cli/serve)，查阅2026-10-10。
+
+配对码由 Mac 生成，8位、5分钟有效、成功一次后失效，最多尝试5次。配对凭证由两端分别存入钥匙串；Mac 端可以撤销已配对设备。iPhone 连接时校验 HTTPS 端点；远程主机限定为 Tailscale `.ts.net` 域名，本地 HTTP 仅用于 loopback 测试。请求正文限长并限制消息角色。Mac 服务只在 App 运行期间可用。
+
+当前桥接只把本轮聊天和相关资料交给 Mac 上配置的 Pi 模型；iPhone 本地保存对话。Mac不可达时，若iPhone配置了模型就回退到手机，否则明确报错。桥接不传输消息历史、目标、记忆修订、构件或附件，也不提供取消、文件/浏览器工具、检查点、后台常驻或完整任务接管。不能把“聊天已经由Mac回复”说成“Pi已操作电脑”。本地服务的配对、一次性码、重启后凭证继续有效、撤销拒绝和远程明文地址拒绝通过合成测试。
+
+2026-10-10 补充验收：本机 `/health` 返回200；Mac 通过 `curl` 访问 Tailscale HTTPS 8443 可完成 TLS 并获得200，443既有根路由仍指向本地4387，Funnel仅保留在443。相同 HTTPS 地址经 OpenMuse 的 `URLSession` 客户端自测失败（SecureTransport `-9816`）；关闭系统HTTP/SOCKS代理仍失败。此结果意味着不能宣称 iPhone 桥接可用，须由已登录Tailscale的iPhone实测 DNS、TLS和配对。公开问题[#19147](https://github.com/tailscale/tailscale/issues/19147)有 iPhone 上 `.ts.net` Serve HTTPS失败的报告；其中一位贡献者把一组案例归因为第三方DNS/DoH影响，也有仍未解决的相似报告。此为社区报告而非已证实的本项目故障原因。当前Mac URLSession失败同样未归因。不要用HTTP、关闭TLS校验或更改现有VPN/DNS配置来掩盖失败。
+
 ## 数据同步：一期本地为主
 
 iCloud可后接（用户允许）。两端SQLite+工作区，连接Mac时通过相同认证通道交换不可变变更和内容寻址附件；Mac断开后均可本地提交，重连合并。同步操作与任务执行分离，手机同步不依赖Pi运行。Mac离线而两端不能连接时，不承诺变更即时互达；在已同步资料上工作，标明待同步。手动迁移包是备用，不替代自动合并。
