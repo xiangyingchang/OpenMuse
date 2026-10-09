@@ -1,0 +1,117 @@
+{
+  "review_date": "2026-10-09",
+  "repositories": [
+    {
+      "repository": "OpenMinis/OpenMinis",
+      "url": "https://github.com/OpenMinis/OpenMinis",
+      "commit": "b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c",
+      "license_metadata": {
+        "key": "gpl-3.0",
+        "name": "GNU General Public License v3.0",
+        "spdx_id": "GPL-3.0",
+        "url": "https://api.github.com/licenses/gpl-3.0",
+        "node_id": "MDc6TGljZW5zZTk="
+      },
+      "evidence": "source inspection only; not built or device tested",
+      "fetched_paths": [
+        "LICENSE",
+        "README.md",
+        "src/ios/Agent/Background/BackgroundKeepAliveManager.swift",
+        "src/ios/Agent/Chat/AIChatViewModel+MemoryTools.swift"
+      ],
+      "inspection_scope": "README, license and targeted architecture/runtime source excerpts; fetched paths are not all fully audited"
+    },
+    {
+      "repository": "Innei/lody-ios",
+      "url": "https://github.com/Innei/lody-ios",
+      "commit": "e6b3176bbffffdf0dbba89c8ef92d04845423a96",
+      "license_metadata": {
+        "key": "other",
+        "name": "Other",
+        "spdx_id": "NOASSERTION",
+        "url": null,
+        "node_id": "MDc6TGljZW5zZTA="
+      },
+      "evidence": "source inspection only; not built or device tested",
+      "fetched_paths": [
+        "LICENSE",
+        "README.md",
+        "package.json",
+        "docs/webview-runtime-poc.md",
+        "apps/mobile/modules/lody-kit/ios/Cloud/DataRuntime.swift",
+        "apps/mobile/modules/lody-kit/ios/Cloud/SessionBackgroundTasks.swift"
+      ],
+      "inspection_scope": "README, license and targeted architecture/runtime source excerpts; fetched paths are not all fully audited"
+    },
+    {
+      "repository": "nano-muse/nanoMuse",
+      "url": "https://github.com/nano-muse/nanoMuse",
+      "commit": "903a8eafdf20b7d9d6f3f78351580993a325e3ee",
+      "license_metadata": {
+        "key": "gpl-3.0",
+        "name": "GNU General Public License v3.0",
+        "spdx_id": "GPL-3.0",
+        "url": "https://api.github.com/licenses/gpl-3.0",
+        "node_id": "MDc6TGljZW5zZTk="
+      },
+      "evidence": "source inspection only; not built or device tested",
+      "fetched_paths": [
+        "LICENSE",
+        "README.md",
+        "docs/sentinel.md",
+        "docs/privacy.md",
+        "docs/ios.md",
+        "docs/hub.md",
+        "docs/local-runtime.md",
+        "nanomuse/background.py",
+        "nanomuse/runtime.py",
+        "android/src/ios/NanoMuse/NanoMuseScheduler.swift",
+        "nanomuse/memory/store.py",
+        "nanomuse/memory/consolidate.py",
+        "nanomuse/goals/store.py",
+        "nanomuse/sentinel/grants.py",
+        "nanomuse/sentinel/gate.py"
+      ],
+      "inspection_scope": "README, license and targeted architecture/runtime source excerpts; fetched paths are not all fully audited"
+    },
+    {
+      "repository": "earendil-works/pi",
+      "url": "https://github.com/earendil-works/pi",
+      "commit": "f1b2e77f5b13b2a199b1052cb79c235451afe7d7",
+      "license_metadata": {
+        "key": "mit",
+        "name": "MIT License",
+        "spdx_id": "MIT",
+        "url": "https://api.github.com/licenses/mit",
+        "node_id": "MDc6TGljZW5zZTEz"
+      },
+      "evidence": "source inspection only; not built or device tested",
+      "fetched_paths": [
+        "LICENSE",
+        "README.md",
+        "package.json",
+        "packages/durable/README.md",
+        "packages/coding-agent/docs/sdk.md",
+        "packages/coding-agent/docs/models.md",
+        "packages/coding-agent/docs/containerization.md"
+      ],
+      "inspection_scope": "README, license and targeted architecture/runtime source excerpts; fetched paths are not all fully audited"
+    }
+  ],
+  "public_pages": [
+    "https://introducing.muse.ai/",
+    "https://security.muse.ai/",
+    "https://muse.ai/platform/docs",
+    "https://developer.apple.com/icloud/cloudkit/",
+    "https://developer.apple.com/app-store/review/guidelines/",
+    "https://developer.apple.com/documentation/BackgroundTasks/refreshing-and-maintaining-your-app-using-background-tasks",
+    "https://developer.apple.com/videos/play/wwdc2025/227/"
+  ],
+  "limitations": [
+    "Muse app not authenticated or exercised",
+    "Public image browser navigation timed out",
+    "No reference app build or device acceptance",
+    "No domestic direct-network test",
+    "Notion/mail provider-specific integration not researched until provider chosen"
+  ]
+}

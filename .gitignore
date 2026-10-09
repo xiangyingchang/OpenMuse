@@ -1,0 +1,17 @@
+# Local/private data
+.DS_Store
+.env
+.env.*
+!.env.example
+private/
+local-data/
+secrets/
+*.key
+*.p12
+*.mobileprovision
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+node_modules/
+.build/
+DerivedData/
