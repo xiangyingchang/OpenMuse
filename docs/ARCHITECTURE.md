@@ -92,3 +92,7 @@ OpenAI、DeepSeek 和自定义 API 为一期明确适配目标。统一供应商
 ## 2026-10-10 双端与共享资料收敛
 
 手机独立、Mac连接优先及专属任务等待；首轮外出连接家中Mac；共享工作区两端本地副本+iCloud与Mac本地授权范围分开。这些产品关系已确认，网络与同步协议仍待技术关卡。详见[双端关系](DEVICE_AND_FILES.md)和[开工复查](STARTUP_REVIEW.md)，此更新取代跨网需求未定的旧描述。
+
+## 本轮详细协议基线（2026-10-10）
+
+网络采用Tailscale，早期共享本地状态经Mac认证通道直接同步，iCloud后接；采用[RUNTIME_PROTOCOL](RUNTIME_PROTOCOL.md)的执行/合并规则。[ARTIFACTS](ARTIFACTS.md)定义WKWebView受限交互包，[POLICIES](POLICIES.md)定义预算/遗忘，[IMPLEMENTATION_PLAN](IMPLEMENTATION_PLAN.md)定义具体关卡。旧图的iCloud是未来适配，不再是首批运行必需。具体设备证据尚不存在。

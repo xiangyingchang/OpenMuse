@@ -145,3 +145,11 @@ Muse 身份页直接展示 SOUL.md 和 MEMORY.md。MEMORY 界面说明其为精�
 ## 2026-10-10 入库边界确认
 
 用户明确说出的日常事实自动更新并可撤销；外部资料提取和模型推断先预览确认，保留来源。目标默认追踪不等于外部推断自动入库。共享工作区关系已确认见DEVICE_AND_FILES；具体数据库与同步协议仍为候选。
+
+## 本轮协议细化：v1实现基线（2026-10-10）
+
+补RUNTIME_PROTOCOL的事件信封；本地对象表至少有documents/documentRevisions、claims/claimRevisions、sources/imports、messages/conversations、goals/steps/progressEvents、schedules/maintenanceRuns、artifacts/revisions、attachments、outbox/deviceCursors、deletionMarkers。主键稳定UUID，修订不可变并带parent IDs，外键不允许来源静默丢失；索引不承载唯一事实。事务内写修订+当前指针+outbox；文件更新失败标待投影，读取同一提交的DB视图，重试原子投影。
+
+结构化文件块用稳定claimId/doc blockId关联；自由段落保存在document block，不能用正则强行解释成用户事实。SOUL与工作约定是版本文档；USER/MEMORY/GLOBAL是同一逻辑事实的不同视图，不建立独立事实副本。初始上下文预算取模型窗口25%、最多12000 token，其中SOUL/身份/约定最多2000，USER/GLOBAL最多2000，相关记忆/来源最多4000，任务/成果最多4000；不足窗口按当前请求、权限/纠正、任务、相关事实排序缩减。超预算必要边界先压缩/按需读取，不能静默截掉；这些数值为可调工程基线，非Muse参数。
+
+一期iCloud允许后接，先用认证Mac通道同步同一协议，两端保有本地状态；后续iCloud增加传输适配器，不重新设计画像。彻底遗忘和受控备份具体方案见[POLICIES](POLICIES.md)。

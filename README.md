@@ -23,6 +23,8 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 
 从[讨论索引](docs/DISCUSSIONS.md)查询历史修正、[决定](docs/DECISIONS.md)、[待决事项](docs/STARTUP_REVIEW.md)和[迭代记录](docs/ITERATIONS.md)。新增[设计原则](docs/DESIGN_PRINCIPLES.md)及[双端与文件关系](docs/DEVICE_AND_FILES.md)。
 
+当前补齐方案从[开工状态](docs/STARTUP_REVIEW.md)进入：连接/接管、构件、行为规则、页面规格和实施任务均已制定；尚无可运行App。
+
 ## 讨论文档
 
 1. [产品需求](docs/PRD.md)

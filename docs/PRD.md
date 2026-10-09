@@ -152,3 +152,7 @@ SOUL.md、USER.md、GLOBAL.md、HEARTBEAT.md 是必需的可访问文件。文�
 ## 19. 2026-10-10 讨论补充
 
 设计遵循[表达与设计原则](DESIGN_PRINCIPLES.md)。双端关系与共享资料见[DEVICE_AND_FILES](DEVICE_AND_FILES.md)：手机独立可用，连接Mac优先执行，Mac专属步骤等待；第一轮须支持外出连接家中Mac。明确事实自动记忆可撤销，外部提取/推断先确认；QQ首接、Gmail后扩展。讨论与迭代通过[索引](DISCUSSIONS.md)随时查询；完整开工条件与剩余问题见[复查](STARTUP_REVIEW.md)。
+
+## 20. 六类缺口的补齐与阶段调整（2026-10-10）
+
+用户确定Tailscale路线、iCloud可后接、耗电可运行后优化；首轮仍需手机独立和外出连接Mac。共享资料先经认证连接同步本地副本，不声称Mac离线时两端实时一致。构件见[ARTIFACTS](ARTIFACTS.md)，主动性/费用/遗忘见[POLICIES](POLICIES.md)，交互参照截图的具体规格见[UI_SPEC](UI_SPEC.md)，任务/验收/节奏见[IMPLEMENTATION_PLAN](IMPLEMENTATION_PLAN.md)。这些补充取代“尚未制定”的状态；实施默认值待整体审阅，未做产品验证。

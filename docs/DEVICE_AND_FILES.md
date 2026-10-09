@@ -26,3 +26,7 @@ SQLite各自在本地运行，iCloud同步稳定记录/修订与附件，不共�
 用户没有付费开发者账号。Apple允许Personal Team个人设备测试，但描述了七天配置文件有效期及重新构建安装要求：[会员比较](https://developer.apple.com/support/compare-memberships/)。CloudKit配置文档要求有效开发者会员：[启用CloudKit](https://developer.apple.com/documentation/cloudkit/enabling-cloudkit-in-your-app)。查阅2026-10-10；尚未核验本机签名配置。
 
 免费签名可用于有限实验；不把它承诺为长期免维护安装或完整CloudKit验收。可先实现本地协议和导入/导出、验证连接；付费账号或用户选择文件目录的替代同步路线需另外确定，替代路线不能未经讨论就取代iCloud目标。
+
+## 本轮替代：2026-10-10
+
+用户选择Tailscale；无免费iCloud路径则后接。早期共享工作区通过认证Mac通道直接同步，本地副本继续有效；旧段落中“iCloud作为首轮必需”不再是交付门槛。连接协议见[RUNTIME_PROTOCOL](RUNTIME_PROTOCOL.md)，iCloud接入保留为后续传输适配。手机尚未获取文件仍等待，Mac离线时两端新修改不即时互达。耗电是后优化，后台能否执行另验。
