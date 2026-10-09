@@ -60,3 +60,5 @@
 - D13（2026-10-10）已确认：社区 Muse 运行文档快照作为重点参考，持续研究记忆维护和 dreaming；后续迭代可以询问用户类似场景的 Muse 实际处理。公开分析与本地原件分开，应用实现仍未授权。
 
 - D14（2026-10-10）已确认：原样预埋用户提供的其他 AI 记忆迁移提示词，保存 prompts/memory-transfer.v1.md；未来改版保留基线。入口与入库策略仍为 MEMORY_TRANSFER.md 中的建议，不代表应用实现授权。
+
+- 2026-10-10 选型建议：双端原生 Swift；iOS SwiftUI/UIKit 与原生执行控制，Mac SwiftUI/AppKit 与 Pi 独立进程。用户要求参考 Lody 技术、Muse 初期交互；具体框架推荐尚未批准。用户授权稍后连接 iPhone 后用 iPhone-use 查看 Muse，目前尚未实际查看。

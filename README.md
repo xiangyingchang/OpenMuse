@@ -34,6 +34,7 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 11. [Muse 记忆机制的证据分层](docs/MUSE_MEMORY_RESEARCH.md)
 12. [Muse 持续研究档案：记忆维护与 dreaming](docs/muse-research/README.md)
 13. [其他 AI 记忆迁移与预埋提示词](docs/MEMORY_TRANSFER.md)
+14. [iOS/macOS 技术选型推荐](docs/APP_STACK.md)
 
 ## 开源与命名
 

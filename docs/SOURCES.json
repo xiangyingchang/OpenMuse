@@ -39,7 +39,10 @@
         "package.json",
         "docs/webview-runtime-poc.md",
         "apps/mobile/modules/lody-kit/ios/Cloud/DataRuntime.swift",
-        "apps/mobile/modules/lody-kit/ios/Cloud/SessionBackgroundTasks.swift"
+        "apps/mobile/modules/lody-kit/ios/Cloud/SessionBackgroundTasks.swift",
+        "apps/mobile/modules/lody-kit/ios/Chat/LodyChatView.swift",
+        "apps/mobile/modules/lody-kit/ios/Chat/ChatComposerView.swift",
+        "apps/mobile/modules/lody-kit/src/chat/NativeChat.tsx"
       ],
       "inspection_scope": "README, license and targeted architecture/runtime source excerpts; fetched paths are not all fully audited"
     },
