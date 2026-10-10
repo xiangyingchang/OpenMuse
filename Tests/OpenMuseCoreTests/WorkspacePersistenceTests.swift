@@ -144,6 +144,61 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertEqual(reopened.conversations.first(where: { $0.id == sideConversationID })?.parentConversationID, mainConversationID)
     }
 
+    @MainActor
+    func testGoalAndArtifactEditsSurviveReopenAndArtifactRestoreCreatesANewRevision() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseEdits-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let workspace = directory.appendingPathComponent("workspace", isDirectory: true)
+        let seedStore = try SQLiteStore(path: directory.appendingPathComponent("OpenMuse.sqlite"))
+        let conversation = ConversationRecord(title: "旅行规划")
+        let firstStep = GoalStep(title: "选定大致时间")
+        let secondStep = GoalStep(title: "比较交通方式")
+        let goal = GoalRecord(
+            conversationID: conversation.id,
+            title: "恩施 7 天旅行",
+            summary: "先做一份可调整的计划。",
+            steps: [firstStep, secondStep]
+        )
+        let artifact = ArtifactRecord(
+            title: "恩施旅行计划",
+            conversationID: conversation.id,
+            goalID: goal.id,
+            content: "第一版草稿"
+        )
+        try seedStore.save(conversation, kind: RecordKind.conversation, id: conversation.id)
+        try seedStore.save(goal, kind: RecordKind.goal, id: goal.id)
+        try seedStore.save(artifact, kind: RecordKind.artifact, id: artifact.id, appendRevision: true)
+
+        let model = OpenMuseAppModel(
+            runtimeOverride: nil,
+            workspaceRootOverride: workspace,
+            configurationOverride: ModelConfiguration(),
+            startMacBridge: false
+        )
+        model.toggleGoalStep(goalID: goal.id, stepID: firstStep.id)
+        XCTAssertTrue(model.goals.first?.steps.first?.isComplete == true)
+        model.setGoalStatus(goalID: goal.id, status: "已完成")
+        model.saveArtifact(artifact, content: "第二版草稿")
+        XCTAssertEqual(model.artifacts.first?.currentRevision, 2)
+
+        let original = try XCTUnwrap(model.artifactHistory(id: artifact.id).first(where: { $0.currentRevision == 1 }))
+        model.restoreArtifact(original)
+        XCTAssertEqual(model.artifacts.first?.currentRevision, 3)
+        XCTAssertEqual(model.artifacts.first?.content, "第一版草稿")
+
+        let reopened = OpenMuseAppModel(
+            runtimeOverride: nil,
+            workspaceRootOverride: workspace,
+            configurationOverride: ModelConfiguration(),
+            startMacBridge: false
+        )
+        XCTAssertEqual(reopened.goals.first?.status, "已完成")
+        XCTAssertTrue(reopened.goals.first?.steps.first?.isComplete == true)
+        XCTAssertEqual(reopened.artifacts.first?.currentRevision, 3)
+        XCTAssertEqual(reopened.artifactHistory(id: artifact.id).count, 3)
+    }
+
     func testDatabaseRejectsNewerSchemaWithoutDowngradingIt() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseTests-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -178,6 +233,22 @@ final class WorkspacePersistenceTests: XCTestCase {
         let custom = ModelConfiguration(provider: .custom, endpoint: "https://proxy.example.com/v1", model: "model-1")
         XCTAssertNotEqual(deepSeek.credentialAccount, openAI.credentialAccount)
         XCTAssertNotEqual(openAI.credentialAccount, custom.credentialAccount)
+    }
+
+    func testCredentialStoreSavesAndDeletesOnlyItsScopedKey() throws {
+        let configuration = ModelConfiguration(
+            provider: .custom,
+            endpoint: "https://keychain-\(UUID().uuidString).example/v1",
+            model: "test-model"
+        )
+        let testKey = "openmuse-keychain-test-\(UUID().uuidString)"
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+
+        XCTAssertNil(SecureStore.readAPIKey(for: configuration))
+        try SecureStore.saveAPIKey(testKey, for: configuration)
+        XCTAssertEqual(SecureStore.readAPIKey(for: configuration), testKey)
+        try SecureStore.deleteAPIKey(for: configuration)
+        XCTAssertNil(SecureStore.readAPIKey(for: configuration))
     }
 
     func testMacBridgeRejectsInsecureAddressesAndOversizedTranscripts() {
@@ -312,6 +383,66 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertEqual(reply, "Pi RPC 本地模拟模型验证成功。")
     }
     #endif
+
+    @MainActor
+    func testExplicitMemoryIsSavedAndAQuestionIsNotRecordedAsAUserFact() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseMemory-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://memory-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-memory-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+
+        let workspace = directory.appendingPathComponent("workspace", isDirectory: true)
+        let model = OpenMuseAppModel(
+            runtimeOverride: TravelFlowStubRuntime(),
+            workspaceRootOverride: workspace,
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        let initialRevision = try XCTUnwrap(model.documents.first(where: { $0.path == "USER.md" })).revision
+
+        await model.send("我喜欢慢一点的节奏。")
+        let savedFact = try XCTUnwrap(model.documents.first(where: { $0.path == "USER.md" }))
+        XCTAssertEqual(savedFact.revision, initialRevision + 1)
+        XCTAssertTrue(savedFact.content.contains("我喜欢慢一点的节奏。"))
+
+        await model.send("你觉得我适合早起吗？")
+        let stillSavedFact = try XCTUnwrap(model.documents.first(where: { $0.path == "USER.md" }))
+        XCTAssertEqual(stillSavedFact.revision, savedFact.revision)
+        XCTAssertFalse(stillSavedFact.content.contains("适合早起"))
+
+        let reopened = OpenMuseAppModel(
+            runtimeOverride: nil,
+            workspaceRootOverride: workspace,
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        XCTAssertEqual(reopened.documents.first(where: { $0.path == "USER.md" })?.content, stillSavedFact.content)
+    }
+
+    @MainActor
+    func testModelFailureKeepsTheRequestAndMarksActivityFailed() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseFailure-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://failure-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-failure-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+
+        let model = OpenMuseAppModel(
+            runtimeOverride: FailingRuntime(),
+            workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        await model.send("帮我规划一趟去恩施的旅行。")
+
+        XCTAssertFalse(model.isSending)
+        XCTAssertEqual(model.messages.map(\.role), [.user, .assistant])
+        XCTAssertEqual(model.messages.last?.status, "failed")
+        XCTAssertEqual(model.activities.first?.status, "failed")
+        XCTAssertEqual(model.activities.first?.steps?.first(where: { $0.title == "生成回复" })?.status, "failed")
+        XCTAssertTrue(model.activities.first?.stage.contains("模型调用失败") == true)
+    }
 }
 
 private struct TravelFlowStubRuntime: ModelRuntime {
@@ -320,6 +451,12 @@ private struct TravelFlowStubRuntime: ModelRuntime {
             return "日期没定也没关系。我们可以先从旅行节奏开始，之后再一起调整路线。"
         }
         return "按慢节奏先做一份可调整的草案。\n\n第一天：抵达恩施，入住后休息。\n第二天：安排轻松的城市漫步。"
+    }
+}
+
+private struct FailingRuntime: ModelRuntime {
+    func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
+        throw ModelRuntimeError.server("测试模型暂不可用。")
     }
 }
 

@@ -7,18 +7,31 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		13530D6359600D4C8E6A0DBB /* OpenMuseNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D78D15EB8F57C077E0307B9 /* OpenMuseNavigationUITests.swift */; };
 		4194D20BBDE137369A3D1759 /* OpenMuseMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFBD7233714D20A5058723E /* OpenMuseMacApp.swift */; };
 		BA437A91E64C360CE8DD0542 /* OpenMuseIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17623E9AF8E4B9F3B30BD03 /* OpenMuseIOSApp.swift */; };
 		BABBB427A854694FBF03F8B5 /* OpenMuseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 319179351E9C557AB0AE2A72 /* OpenMuseCore */; };
 		D2C9175D34AEC934FD631EA1 /* OpenMuseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FDAC2C64C53E56CE4493006 /* OpenMuseCore */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		69D63D2D24D26C0CFE0AE406 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 3FA342FF05E48A2674FED977 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F4DB040CD38FE7B42EEDD58C;
+			remoteInfo = OpenMuseiOS;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		7D78D15EB8F57C077E0307B9 /* OpenMuseNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMuseNavigationUITests.swift; sourceTree = "<group>"; };
 		8CD7C5595A6E892F3DA55DDC /* OpenMuseiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenMuseiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A3C4730381D97DC489E4D7DB /* OpenMuseMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenMuseMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		AEBD8A36824B2C7416843DDA /* OpenMuse */ = {isa = PBXFileReference; lastKnownFileType = folder; name = OpenMuse; path = .; sourceTree = SOURCE_ROOT; };
 		AEFBD7233714D20A5058723E /* OpenMuseMacApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMuseMacApp.swift; sourceTree = "<group>"; };
 		C17623E9AF8E4B9F3B30BD03 /* OpenMuseIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMuseIOSApp.swift; sourceTree = "<group>"; };
+		D8612BF966DAC9F1A9C67D55 /* OpenMuseiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OpenMuseiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -46,6 +59,7 @@
 			children = (
 				939864CC44247C69859A5FB0 /* Apps */,
 				AC43A7B083FF27E47537F08C /* Packages */,
+				C044969CE57B3AEB6A056C55 /* Tests */,
 				7003DA7CC3BEA0BA7F226D03 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -62,6 +76,7 @@
 			isa = PBXGroup;
 			children = (
 				8CD7C5595A6E892F3DA55DDC /* OpenMuseiOS.app */,
+				D8612BF966DAC9F1A9C67D55 /* OpenMuseiOSUITests.xctest */,
 				A3C4730381D97DC489E4D7DB /* OpenMuseMac.app */,
 			);
 			name = Products;
@@ -84,12 +99,28 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
+		C044969CE57B3AEB6A056C55 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				F3982C4260DB4C289D449C2F /* OpenMuseiOSUITests */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
 		F14832E8C94DE7F87F481F8B /* iOS */ = {
 			isa = PBXGroup;
 			children = (
 				C17623E9AF8E4B9F3B30BD03 /* OpenMuseIOSApp.swift */,
 			);
 			path = iOS;
+			sourceTree = "<group>";
+		};
+		F3982C4260DB4C289D449C2F /* OpenMuseiOSUITests */ = {
+			isa = PBXGroup;
+			children = (
+				7D78D15EB8F57C077E0307B9 /* OpenMuseNavigationUITests.swift */,
+			);
+			path = OpenMuseiOSUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -113,6 +144,24 @@
 			productName = OpenMuseMac;
 			productReference = A3C4730381D97DC489E4D7DB /* OpenMuseMac.app */;
 			productType = "com.apple.product-type.application";
+		};
+		CAA0EE22A0A75E2AE33B6E34 /* OpenMuseiOSUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B5CE47DF791390E579586204 /* Build configuration list for PBXNativeTarget "OpenMuseiOSUITests" */;
+			buildPhases = (
+				D5BBBB2CE1FE0FD713CB7B2E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB32B25AB9EECD11F11B52B1 /* PBXTargetDependency */,
+			);
+			name = OpenMuseiOSUITests;
+			packageProductDependencies = (
+			);
+			productName = OpenMuseiOSUITests;
+			productReference = D8612BF966DAC9F1A9C67D55 /* OpenMuseiOSUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		F4DB040CD38FE7B42EEDD58C /* OpenMuseiOS */ = {
 			isa = PBXNativeTarget;
@@ -145,6 +194,9 @@
 					3AD827E1D747A659496A3808 = {
 						ProvisioningStyle = Automatic;
 					};
+					CAA0EE22A0A75E2AE33B6E34 = {
+						TestTargetID = F4DB040CD38FE7B42EEDD58C;
+					};
 					F4DB040CD38FE7B42EEDD58C = {
 						ProvisioningStyle = Automatic;
 					};
@@ -169,6 +221,7 @@
 			targets = (
 				F4DB040CD38FE7B42EEDD58C /* OpenMuseiOS */,
 				3AD827E1D747A659496A3808 /* OpenMuseMac */,
+				CAA0EE22A0A75E2AE33B6E34 /* OpenMuseiOSUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -190,7 +243,23 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D5BBBB2CE1FE0FD713CB7B2E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				13530D6359600D4C8E6A0DBB /* OpenMuseNavigationUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		AB32B25AB9EECD11F11B52B1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F4DB040CD38FE7B42EEDD58C /* OpenMuseiOS */;
+			targetProxy = 69D63D2D24D26C0CFE0AE406 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		1A84D5206A0468717709E650 /* Debug */ = {
@@ -220,6 +289,24 @@
 			};
 			name = Debug;
 		};
+		5293CF8F09FCFA8CF22AB98D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.openmuse.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OpenMuseiOS;
+			};
+			name = Release;
+		};
 		535B80655A9EF682FE65A3D7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -242,6 +329,24 @@
 				PRODUCT_NAME = OpenMuse;
 				SDKROOT = macosx;
 				SWIFT_VERSION = 5.9;
+			};
+			name = Debug;
+		};
+		640C815FD2DB51C4F33C5706 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = org.openmuse.ios.uitests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = OpenMuseiOS;
 			};
 			name = Debug;
 		};
@@ -433,6 +538,15 @@
 			buildConfigurations = (
 				1A84D5206A0468717709E650 /* Debug */,
 				EB4866F0FC4CCC080DA40993 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B5CE47DF791390E579586204 /* Build configuration list for PBXNativeTarget "OpenMuseiOSUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				640C815FD2DB51C4F33C5706 /* Debug */,
+				5293CF8F09FCFA8CF22AB98D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

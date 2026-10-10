@@ -28,3 +28,11 @@
 2026-10-10 模型实测补记：真实 `deepseek-chat` 通过 `OpenAICompatibleRuntime` 直连成功；Mac `PiRuntime`（本机 Pi 1.0.4）连通测试成功。再通过 OpenMuse 模型层完成恩施 7 天旅行的两轮对话，确认目标、旅行构件和两条完成活动记录均写入本机 OpenMuse 工作区，并在重新打开模型后读回。DeepSeek 配置与凭证只保存在本机设置/登录钥匙串，凭证值没有写进仓库或验证日志。Mac Debug 与 iOS Simulator 构建通过，模拟器应用已安装并启动；本轮没有在 iPhone 真机或 App 界面内输入/点击，不能据此宣称真机验收。该 key 未同步到 iPhone；正式使用前应在已连接的设备上分别配置，并在撤销当前临时 key 后换新。详见 [ITERATIONS](ITERATIONS.md)。
 
 本页前文记录开工授权前状态。用户2026-10-10以D31明确进入代码阶段，替代此前“仍待授权”的门槛；无需重问D01–D30。若技术实验迫使改变重要产品承诺，记录失败并回到讨论。
+
+### 2026-10-10 最新完整验收补记
+
+- 已解决：前文记录的 Mac `URLSession` 访问 Tailscale HTTPS Serve 失败现象。`MacBridgeClient` 改为空代理字典直连；本机当前私有 Serve 路由的 `URLSession` 健康检查与同一路由的 `curl` 均返回 HTTP 200。早期 `-9816` 是修复前记录，不能再视为当前未解决缺陷。
+- 本轮自动化：`swift test` 17 项通过、0 失败、0 跳过；运行时启用了 loopback 合成 OpenAI SSE 服务与本机当前 Tailscale Serve 路由，覆盖 Pi RPC 回合和 Mac 到自身私有路由的 HTTPS 请求。iPhone 17 Pro / iOS 26.5 模拟器的 2 项 UI 测试通过，覆盖主导航、陪伴者面板、身份文件列表、侧栏搜索和模型设置表单。修改后的 Mac Debug 构建成功。
+- 设备边界：Tailscale HTTPS 结果只证明这台 Mac 访问自身 Serve 入口，不证明 iPhone 到家中 Mac 的跨设备连接。PUA 与 Xcode 都报告真机离线；本轮没有 iPhone 安装、真机 UI、真机钥匙串或蜂窝网络验收。Mac 界面也没有做逐项点击验收。
+- 模型边界：本轮用本机合成服务验证 Pi RPC；先前记录的真实 DeepSeek 两轮旅行闭环仍是当前可用证据，本轮未再次发送真实模型请求。OpenAI 真实账号切换、iOS 真机模型请求、流式、取消和 usage 仍未验收。
+- 证据位于忽略的本机 `.build/logs/`：`swift-test-complete-verified.log`、`ios-ui-test-verified.log`、`final-mac-build.log`。完整功能状态按 [PHASE1_PARITY](PHASE1_PARITY.md) 的最新测试矩阵读取；未实现功能不因空状态页面测试通过而算作已实现。

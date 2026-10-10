@@ -20,6 +20,8 @@ Mac App 打开时，OpenMuse 服务绑定 `127.0.0.1:4388`；iPhone 不直接访
 
 2026-10-10 补充验收：本机 `/health` 返回200；Mac 上普通 `curl`、绕过代理的 `curl`、强制解析到 tailnet IP 的 `curl` 访问 Tailscale HTTPS 8443 都返回200，证书校验结果为0；443既有根路由仍指向本地4387，Funnel仅保留在443。OpenMuse 的 Swift `URLSession` 对相同 HTTPS 地址自测失败并报告 SecureTransport `-9816`。Apple 将此码定义为 `errSSLClosedNoNotify`，即服务端关闭会话但未发送关闭通知；它本身不代表证书校验失败。[Apple 错误码说明](https://developer.apple.com/documentation/security/errsslclosednonotify)。关闭系统HTTP/SOCKS代理也不改变结果，因此当前根因未定位。Mac 的对照测试不能证明 iPhone 桥接可用；iPhone 尚未连入该 tailnet，仍须实测 DNS、HTTPS、配对和聊天。公开问题[#19147](https://github.com/tailscale/tailscale/issues/19147)有 iPhone 上 `.ts.net` Serve HTTPS失败的报告；其中一位贡献者把一组案例归因为第三方DNS/DoH影响，也有仍未解决的相似报告。此为社区报告而非本项目故障根因证据。不要用HTTP、关闭TLS校验或更改现有VPN/DNS配置来掩盖失败。
 
+2026-10-10 后续客户端修复：排查后发现显式设置多个 `HTTPEnable/HTTPSEnable/SOCKSEnable = 0` 代理标志会导致 `URLSession` 自连接失败；将 `connectionProxyDictionary` 设为空字典后，同一路由的 `URLSession` 健康检查返回 HTTP 200，Tailscale 私有 HTTPS Serve 路由测试通过。T14 的客户端失败描述保留为修复前记录。以上只验证 Mac 访问自身路由；iPhone 仍离线，跨设备验收未完成。`swift test` 本轮 17 项通过、0 失败、0 跳过，详见 [ITERATIONS](ITERATIONS.md)。
+
 ## 数据同步：一期本地为主
 
 iCloud可后接（用户允许）。两端SQLite+工作区，连接Mac时通过相同认证通道交换不可变变更和内容寻址附件；Mac断开后均可本地提交，重连合并。同步操作与任务执行分离，手机同步不依赖Pi运行。Mac离线而两端不能连接时，不承诺变更即时互达；在已同步资料上工作，标明待同步。手动迁移包是备用，不替代自动合并。

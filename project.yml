@@ -70,11 +70,28 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ENABLE_APP_SANDBOX: NO
         CODE_SIGN_STYLE: Automatic
+  OpenMuseiOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/OpenMuseiOSUITests
+    dependencies:
+      - target: OpenMuseiOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios.uitests
+        TEST_TARGET_NAME: OpenMuseiOS
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 5.9
 schemes:
   OpenMuseiOS:
     build:
       targets:
         OpenMuseiOS: all
+    test:
+      config: Debug
+      targets:
+        - OpenMuseiOSUITests
     run:
       config: Debug
   OpenMuseMac:

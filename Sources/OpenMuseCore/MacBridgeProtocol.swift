@@ -62,11 +62,7 @@ public enum MacBridgeError: Error, LocalizedError {
 public enum MacBridgeClient {
     private static let directSession: URLSession = {
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.connectionProxyDictionary = [
-            "HTTPEnable": 0,
-            "HTTPSEnable": 0,
-            "SOCKSEnable": 0
-        ]
+        configuration.connectionProxyDictionary = [:]
         configuration.waitsForConnectivity = false
         return URLSession(configuration: configuration)
     }()

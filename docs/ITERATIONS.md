@@ -72,3 +72,12 @@
 - 检查：两次临时真实服务测试均通过；常规 `swift test` 13项通过、0失败、2项按条件跳过（在线 Tailscale 地址与本地 Pi RPC 服务）；`OpenMuseMac` Debug 与 `OpenMuseiOS` Simulator 构建均成功。更新后的 `dist/OpenMuse.app` 通过 `codesign --verify --deep --strict`；iPhone 17 Pro Simulator 已安装并启动新版。
 - 未验证：当前 PUA 无法连接 iPhone，Xcode 也找不到该真机；因此没有验证真机 UI、iPhone 钥匙串或 iOS 内的真实点击聊天。Mac 界面没有完成逐项 UI 点击验收。OpenAI 真实供应商切换、模型流式/取消/usage、Tailscale 跨网和 Mac 文件/浏览器执行仍未完成。
 - 证据：本轮工具输出记录实时请求与构建结果；产品本机包为 `dist/OpenMuse.app/`，模拟器包为 `.build/derived-ios/Build/Products/Debug-iphonesimulator/OpenMuse.app/`。本次旅行对话使用真实模型并写入本机工作区，未将回复内容或密钥复制进公共文档。
+
+## 2026-10-10：完整验收回合与 Tailscale 客户端修复
+
+- 范围：复测现有实现、补上 iOS 模拟器界面自动化、验证 Pi RPC 与真实 Tailscale Serve 健康检查，并修复 Mac/iOS 共用的桥接客户端代理配置。
+- 缺陷与修复：最初通过 Mac 的 `URLSession` 访问本机 Tailscale HTTPS Serve 路由失败（CFNetwork 310 / SecureTransport -9816）；同一地址的 `curl` 直连返回 HTTP 200。对比系统代理配置、空代理字典和显式关闭代理标志后，只有空代理字典成功。`MacBridgeClient` 现用空字典建立直连；同一路由的真实 `URLSession` 检查随后通过。
+- 自动化：`swift test` 在本机合成 SSE 服务和 Mac 当前 Tailscale Serve 路由均启用时，17 项通过、0 失败、0 跳过。新增用例覆盖钥匙串限定写入/删除、目标步骤与状态重开、构件恢复生成新版本、明确记忆保存而提问不记为事实、模型失败保留请求并标记活动失败。iPhone 17 Pro / iOS 26.5 模拟器的 2 项 UI 测试通过，覆盖五个主入口、陪伴者五个面板、身份文件列表、侧栏搜索和模型设置表单。
+- 构建：修改后的 Mac Debug 构建成功；iOS 模拟器 UI 测试构建、安装并启动成功。`git diff --check` 通过。证据日志和 xcresult 保存在本机忽略的 `.build/logs/`。
+- 边界：Tailscale 检查是这台 Mac 访问自己的私有 Serve 路由，不是手机到家中 Mac 的跨设备验收。重新检查时 PUA READY 不可达；一次启动尝试因 Xcode 找不到配置的真机目的地而失败，没有执行任何手机动作。因此本轮没有真机安装、真机 UI、iPhone 钥匙串或蜂窝连接测试。此前记录的真实 DeepSeek 两轮恩施旅行闭环仍有效，但本轮没有重复消耗模型 API。
+- 未实现/未验收：Mac 文件/浏览器工具、远程桌面、双端资料同步与任务接管、iOS 离线推理和可靠后台任务、计划任务与 dreaming、真实动态来源/反馈、邮箱/Notion/Obsidian 连接器、iCloud、OpenAI 真实供应商切换、模型流式/取消/usage，以及完整一期多日自用观察。具体范围继续按 K01–K16 和 PHASE1_PARITY，不将已通过的旅行闭环扩大解释为全产品通过。

@@ -54,3 +54,7 @@ D31已授权实现。K01已建立Swift Package共享层与XcodeGen双端工程�
 K06 已实现本机 loopback HTTP 服务、独立 Tailscale Serve 入口配置、一次性配对码、两端钥匙串凭证、Mac 端设备撤销和认证聊天代理。首轮实际桥接范围仅为 Pi 模型回合，不是 Mac 文件或浏览器执行；数据同步和完整任务接管仍在 K07。Tailscale 入口使用独立 8443 端口及 `/openmuse`，遇到该端口已有服务配置会拒绝覆盖。Mac Settings 内提供启用私有 Serve 的动作。Mac 本地服务只在 OpenMuse App 运行时可用。
 
 验证证据以 ITERATIONS 最新项为准：本地 Network.framework 服务集成测试覆盖一次性配对、固定回合响应、服务重启后凭证继续有效、撤销后拒绝及远程明文地址拒绝。此结果不等于当前 Mac 已完成 Tailscale 路由配置，也不等于 iPhone 蜂窝真机连接通过；需完成后续 App 构建，再从设置启用，并在两端验证。真实 Pi 远程模型需要用户在 Mac Settings 保存模型端点和密钥；密钥不进入源码或公开文档。
+
+### 2026-10-10 最新完整验收
+
+17 项 Core 测试全部通过且没有条件跳过；Pi RPC 使用 loopback 合成 SSE 服务，Mac Bridge 使用当前 Tailscale Serve HTTPS 地址。iOS UI 自动化 2 项通过，Mac Debug 构建通过。该批结果证明已实现切片的自动化行为和构建，不证明一期功能全部完成。逐项范围和未实现项见 [PHASE1_PARITY 最新测试矩阵](PHASE1_PARITY.md#2026-10-10-实现功能测试矩阵)。真机离线，因此 K04/K06 的 iPhone 独立真实联网、K06 跨设备连接与 K07 双端同步/接管仍没有验收证据；K11–K16 多项尚未实现。

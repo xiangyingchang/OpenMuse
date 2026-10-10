@@ -53,6 +53,10 @@
 
 本轮不降级为明文、不跳过证书验证、不改动Shadowrocket/VPN/DNS。等iPhone解锁并连接Tailscale后，先测MagicDNS解析与Mac的HTTPS健康地址；若失败，再按设备日志判断要不要试独立网络配置，先回退、单变量验证。备选架构另行记录和讨论，不作为当前既定实现。
 
+## T17：2026-10-10 修复 Mac URLSession 的 Tailscale 直连
+
+后续对比发现，`URLSessionConfiguration.connectionProxyDictionary` 显式写入 `HTTPEnable/HTTPSEnable/SOCKSEnable = 0` 时无法访问本机 Tailscale HTTPS Serve；设为空字典后，同一请求返回 HTTP 200。`MacBridgeClient` 已改为空代理字典，并由真实 `URLSession` 路由检查及全量 17 项 Core 测试确认。T14 是修复前历史记录，当前 Mac 到自身 Serve 的客户端失败已关闭；仍未解决的是 iPhone 到 Mac 的真机/蜂窝验收，不可由本机自测推断。
+
 ## T15：2026-10-10 Muse 前端交互对齐复查
 
 用户要求对 code review 中的页面元素、文案和交互尽量贴近 Muse，并授权直接落地。本轮对照本地截图与交互档案，补齐 iPhone 侧栏/对话分组、头像陪伴者面板、活动步骤、滚动追新、可读构件和可操作的动态/点子页面；点子生成旁聊会关联来源目标。以上是首轮界面切片，不代表完整 V1c/V1d 的真实推荐、来源和反馈机制已完成。当前无新增产品决定；未完成交互继续按 UI_SPEC、PHASE1_PARITY 与 K12/K14 验收，真机、大字号/VoiceOver、逐页交互还需后续实测。实现与证据见本轮 ITERATIONS。
