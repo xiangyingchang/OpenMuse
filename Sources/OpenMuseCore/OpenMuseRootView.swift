@@ -8,6 +8,14 @@ public struct OpenMuseRootView: View {
         self.model = model
     }
 
+    private var topBarActionOffset: CGFloat {
+        #if os(iOS)
+        return -23
+        #else
+        return 0
+        #endif
+    }
+
     public var body: some View {
         #if os(macOS)
         macLayout
@@ -115,23 +123,43 @@ public struct OpenMuseRootView: View {
                     .foregroundStyle(OpenMusePalette.text)
                     .frame(width: 44, height: 44)
                     .background(OpenMusePalette.panel, in: Circle())
+                    .offset(y: topBarActionOffset)
             }
             .accessibilityLabel("打开侧栏")
             #endif
 
             Spacer(minLength: 2)
             Button { model.presentedSheet = .companion } label: {
+                #if os(iOS)
+                VStack(spacing: -2) {
+                    OpenMuseOrb(isActive: model.isSending, size: 64)
+                    Text("OpenMuse")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(OpenMusePalette.text)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule())
+                        .overlay(Capsule().fill(Color.white.opacity(0.06)))
+                        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.7))
+                        .shadow(color: .black.opacity(0.22), radius: 4, y: 1)
+                        .zIndex(1)
+                }
+                .frame(maxWidth: 250)
+                #else
                 VStack(spacing: 3) {
                     OpenMuseOrb(isActive: model.isSending, size: 38)
                     Text("OpenMuse")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(OpenMusePalette.text)
-                    Text(model.activeActivity?.stage ?? model.statusText ?? "陪你把想做的事慢慢做成")
-                        .font(.system(size: 11))
-                        .foregroundStyle(OpenMusePalette.subtle)
-                        .lineLimit(1)
+                    if let status = model.activeActivity?.stage ?? model.statusText {
+                        Text(status)
+                            .font(.system(size: 11))
+                            .foregroundStyle(OpenMusePalette.subtle)
+                            .lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: 250)
+                #endif
             }
             .buttonStyle(.plain)
             .accessibilityLabel("OpenMuse，查看活动、设备与身份")
@@ -150,6 +178,7 @@ public struct OpenMuseRootView: View {
                     .foregroundStyle(OpenMusePalette.text)
                     .frame(width: 44, height: 44)
                     .background(OpenMusePalette.panel, in: Circle())
+                    .offset(y: topBarActionOffset)
             }
             .accessibilityLabel("更多操作")
         }
@@ -188,24 +217,30 @@ public struct OpenMuseRootView: View {
                     model.selectedSection = section
                 } label: {
                     Image(systemName: section.symbol)
-                        .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(model.selectedSection == section ? OpenMusePalette.text : OpenMusePalette.subtle)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background {
-                        if model.selectedSection == section {
-                            Capsule().fill(OpenMusePalette.selected)
+                        .font(.system(size: 21, weight: .regular))
+                        .foregroundStyle(OpenMusePalette.text.opacity(model.selectedSection == section ? 1 : 0.82))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background {
+                            if model.selectedSection == section {
+                                Capsule()
+                                    .fill(Color.black.opacity(0.48))
+                                    .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.7))
+                                    .padding(.horizontal, -3)
+                            }
                         }
-                    }
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(section.rawValue)
             }
         }
         .padding(6)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().fill(OpenMusePalette.navigation.opacity(0.66)))
-        .overlay(Capsule().stroke(OpenMusePalette.border, lineWidth: 1))
+        .background {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(OpenMusePalette.navigation.opacity(0.66)))
+        }
+        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.8))
         .padding(.horizontal, 20)
         .padding(.top, 5)
         .padding(.bottom, 5)

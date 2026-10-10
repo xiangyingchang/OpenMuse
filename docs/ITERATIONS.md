@@ -55,3 +55,11 @@
 - 检查：`swift test` 13 项通过、0 失败、2 项按条件跳过（实时 Tailscale 地址与本地 Pi RPC 服务）；iOS Simulator 与 Mac Debug `xcodebuild` 均通过；iPhone 17 Pro 模拟器重装并启动成功。首屏截图 `.build/logs/muse-parity-ios-final.png`（本机忽略文件）已实际查看；`git diff --check` 通过。
 - 未完成：没有在本轮执行模拟器逐页点击/VoiceOver 测试或安装真机；没有真实模型聊天。附件/语音、动态真实内容与反馈、个性化点子反馈、待审批与计划任务、Pi 工具、浏览器控制、真实同步、后台恢复、iCloud、耗电测试均未完成。头像为原创占位表情及工作状态光圈，不是 Muse 素材或动画曲线复刻；当前画面和信息结构是首轮接近实现，完整 V1 仍逐项按 PHASE1_PARITY 验收。
 - 证据边界：模拟器截图证明新版首屏可启动，不证明导航点击、双端互通或真机体验。具体未完功能和首轮实现映射见 [UI_SPEC](UI_SPEC.md) 与 [Muse交互研究](muse-research/IOS_INTERACTIONS_2026-10-10.md)。
+
+## 2026-10-10：顶部与底栏像素对照修正
+
+- 需求：移除 iPhone 顶部“OpenMuse”下方的固定陪伴标语，放大头像，并按 Muse 截图调整底部导航样式。
+- 变更：头像由38pt增至64pt（约占模拟器屏宽16%）；名称改为贴近头像下缘的半透明胶囊；左右圆按钮上移到接近头像上缘；iOS 顶部不再显示状态副文案。导航改用线框聊天、书页、灯泡、勾选框和资源网格；未选中图标提高亮度，选中项改为较暗胶囊，底色和外描边置于图标之后。
+- 检查：iOS 17模拟器与Mac Debug构建成功；iPhone 17 Pro模拟器重新安装并启动成功；启动截图`.build/logs/muse-parity-ios-final.png`已实际查看；`git diff --check`通过。第一次截图在界面渲染前抓取为白屏，等待两秒后重抓确认正常。
+- 未做：未做真机截图、逐个导航点击、不同屏幕尺寸/辅助功能测试；头像仍为OpenMuse原创表情，导航符号为系统SF Symbols。截图缩放比例未知，按相对占屏比例复刻视觉层级，不声称Muse原始点数完全相同。
+- 证据：Muse源图仍仅保存在被忽略的`.research-local/`目录；最终OpenMuse模拟器截图保存在`.build/logs/`，均未加入提交。

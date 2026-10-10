@@ -240,9 +240,9 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
 
     public var symbol: String {
         switch self {
-        case .chat: "bubble.left.and.bubble.right.fill"
-        case .goals: "target"
-        case .feed: "sparkles"
+        case .chat: "bubble.left"
+        case .goals: "checkmark.square"
+        case .feed: "book.closed"
         case .ideas: "lightbulb"
         case .library: "square.grid.2x2"
         }
