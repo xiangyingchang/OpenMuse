@@ -54,6 +54,17 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertEqual(artifactVersions.last?.content, "第一天：抵达恩施")
     }
 
+    func testOlderConversationAndActivityRecordsDecodeWithoutNewOptionalFields() throws {
+        let conversationJSON = #"{"id":"conversation-1","title":"旧对话","createdAt":0,"updatedAt":0}"#.data(using: .utf8)!
+        let activityJSON = #"{"id":"activity-1","conversationID":"conversation-1","title":"旧活动","stage":"已完成","status":"completed","createdAt":0,"updatedAt":0}"#.data(using: .utf8)!
+
+        let conversation = try JSONDecoder().decode(ConversationRecord.self, from: conversationJSON)
+        let activity = try JSONDecoder().decode(ActivityRecord.self, from: activityJSON)
+
+        XCTAssertNil(conversation.parentConversationID)
+        XCTAssertNil(activity.steps)
+    }
+
     @MainActor
     func testTravelConversationTracksGoalAndSavesEditablePlanRevisions() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseTravelFlow-\(UUID().uuidString)", isDirectory: true)
@@ -74,17 +85,63 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertTrue(model.goals[0].title.contains("恩施"))
         XCTAssertTrue(model.artifacts.isEmpty, "A clarifying first reply must not create a travel-plan artifact prematurely.")
         XCTAssertEqual(model.activities.first?.status, "completed")
+        XCTAssertEqual(model.activities.first?.steps?.map(\.status), ["completed", "completed", "completed", "completed"])
+        XCTAssertEqual(model.activities.first?.steps?.map(\.title), ["保存请求", "读取本地资料", "生成回复", "保存回复与成果"])
+
+        let reopened = OpenMuseAppModel(
+            runtimeOverride: nil,
+            workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        XCTAssertEqual(reopened.activities.first?.steps, model.activities.first?.steps)
 
         await model.send("我喜欢慢一点的节奏，先给我一版路线吧。")
         XCTAssertEqual(model.artifacts.count, 1)
         XCTAssertTrue(model.artifacts[0].content.contains("第一天"))
         XCTAssertEqual(model.goals[0].steps.first?.isComplete, true)
+        XCTAssertTrue(model.activities.first?.steps?.last?.detail.contains("旅行计划") == true)
 
         let firstVersion = model.artifacts[0]
         model.saveArtifact(firstVersion, content: firstVersion.content + "\n\n用户修订：每天不要排太满。")
         XCTAssertEqual(model.artifacts.first?.currentRevision, 2)
         XCTAssertEqual(model.artifactHistory(id: firstVersion.id).count, 2)
         XCTAssertTrue(model.artifacts.first?.content.contains("不要排太满") == true)
+    }
+
+    @MainActor
+    func testSideConversationKeepsItsParentAndEachConversationDraft() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseConversations-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let workspace = directory.appendingPathComponent("workspace", isDirectory: true)
+        let model = OpenMuseAppModel(
+            runtimeOverride: nil,
+            workspaceRootOverride: workspace,
+            configurationOverride: ModelConfiguration(),
+            startMacBridge: false
+        )
+
+        let mainConversationID = model.currentConversationID
+        model.draft = "主聊里未发送的草稿"
+        model.beginSideConversation()
+        let sideConversationID = model.currentConversationID
+        model.draft = "旁聊里未发送的草稿"
+
+        XCTAssertNotEqual(sideConversationID, mainConversationID)
+        XCTAssertEqual(model.conversations.first(where: { $0.id == sideConversationID })?.parentConversationID, mainConversationID)
+
+        model.openConversation(mainConversationID)
+        XCTAssertEqual(model.draft, "主聊里未发送的草稿")
+        model.openConversation(sideConversationID)
+        XCTAssertEqual(model.draft, "旁聊里未发送的草稿")
+
+        let reopened = OpenMuseAppModel(
+            runtimeOverride: nil,
+            workspaceRootOverride: workspace,
+            configurationOverride: ModelConfiguration(),
+            startMacBridge: false
+        )
+        XCTAssertEqual(reopened.conversations.first(where: { $0.id == sideConversationID })?.parentConversationID, mainConversationID)
     }
 
     func testDatabaseRejectsNewerSchemaWithoutDowngradingIt() throws {

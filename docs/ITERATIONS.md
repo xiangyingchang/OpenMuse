@@ -46,3 +46,12 @@
 - 未完成：真实 OpenAI/DeepSeek/自定义服务聊天；Pi 电脑文件/浏览器工具；同步与冲突合并；离线小环境、后台恢复；动态、点子、dreaming、QQ/Notion/Obsidian/邮箱连接器；iPhone 真机 UI/耗电验收。Tailscale 桥接目前只代理模型回合，不传输目标、消息历史、记忆或构件。
 - 证据：忽略的本地日志 `.build/logs/swift-test-final-rerun.log`、`macos-final-rerun.log`、`ios-simulator-final-rerun.log`、`ios-device-final-rerun.log`、模拟器截图 `ios-simulator-final-rerun.png`；Mac 可运行包 `dist/OpenMuse.app/`。真机签名失败旧日志 `.build/ios-signed-build.log`。所有 Muse 私人截图仍留在被 Git 忽略的 `.research-local/`。
 - 下一步：先用在线 iPhone 验证实际 DNS/HTTPS/配对，再针对 Mac `URLSession` 的会话关闭错误定位客户端差异；由用户在 App 设置中直接录入自己的模型凭证后验收真实聊天。之后继续 K07 同步/检查点和 Mac 工具授权，不改变完整一期目标。
+
+## 2026-10-10：Muse 前端交互对齐复查
+
+- 范围：按用户 code review 后续要求，优先落实 iPhone 导航、聊天、头像/活动、目标、动态/点子、资源库与构件页面；关联 D31、K08–K10、K12、K14。实际对照本地 Muse 聊天与空闲头像截图，原图只留在 `.research-local/`。
+- 变更：新增滑出侧栏、五入口图标导航、聊天/旁聊分组搜索、每段对话独立草稿及父对话上下文；头像进入活动/批准/桌面端/近期/身份面板；聊天追新按钮、停止回复和居中欢迎卡；目标步骤展开/勾选/完成/关闭；活动写入真实本地处理阶段并展示步骤时间线；动态指令可编辑、无内容时明确说明数据来源尚未接入；点子由未完成目标生成，接受后创建关联目标的旁聊；构件支持独立预览、编辑、版本历史和恢复旧版。
+- 兼容性：新增的旁聊父 ID 和活动步骤字段都是可选字段；新增回归测试验证旧数据库 JSON 记录仍可解码。旅行测试验证四个活动步骤与资源库保存状态。
+- 检查：`swift test` 13 项通过、0 失败、2 项按条件跳过（实时 Tailscale 地址与本地 Pi RPC 服务）；iOS Simulator 与 Mac Debug `xcodebuild` 均通过；iPhone 17 Pro 模拟器重装并启动成功。首屏截图 `.build/logs/muse-parity-ios-final.png`（本机忽略文件）已实际查看；`git diff --check` 通过。
+- 未完成：没有在本轮执行模拟器逐页点击/VoiceOver 测试或安装真机；没有真实模型聊天。附件/语音、动态真实内容与反馈、个性化点子反馈、待审批与计划任务、Pi 工具、浏览器控制、真实同步、后台恢复、iCloud、耗电测试均未完成。头像为原创占位表情及工作状态光圈，不是 Muse 素材或动画曲线复刻；当前画面和信息结构是首轮接近实现，完整 V1 仍逐项按 PHASE1_PARITY 验收。
+- 证据边界：模拟器截图证明新版首屏可启动，不证明导航点击、双端互通或真机体验。具体未完功能和首轮实现映射见 [UI_SPEC](UI_SPEC.md) 与 [Muse交互研究](muse-research/IOS_INTERACTIONS_2026-10-10.md)。

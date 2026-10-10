@@ -17,12 +17,14 @@ public enum MessageRole: String, Codable {
 public struct ConversationRecord: Codable, Identifiable, Equatable {
     public var id: String
     public var title: String
+    public var parentConversationID: String?
     public var createdAt: Date
     public var updatedAt: Date
 
-    public init(id: String = UUID().uuidString, title: String = "新对话", createdAt: Date = .now, updatedAt: Date = .now) {
+    public init(id: String = UUID().uuidString, title: String = "新对话", parentConversationID: String? = nil, createdAt: Date = .now, updatedAt: Date = .now) {
         self.id = id
         self.title = title
+        self.parentConversationID = parentConversationID
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -119,21 +121,41 @@ public struct WorkspaceDocument: Codable, Identifiable, Equatable {
     }
 }
 
+public struct ActivityStepRecord: Codable, Identifiable, Equatable {
+    public var id: String
+    public var group: String
+    public var title: String
+    public var detail: String
+    public var status: String
+    public var updatedAt: Date
+
+    public init(id: String = UUID().uuidString, group: String = "MAIN", title: String, detail: String, status: String = "pending", updatedAt: Date = .now) {
+        self.id = id
+        self.group = group
+        self.title = title
+        self.detail = detail
+        self.status = status
+        self.updatedAt = updatedAt
+    }
+}
+
 public struct ActivityRecord: Codable, Identifiable, Equatable {
     public var id: String
     public var conversationID: String
     public var title: String
     public var stage: String
     public var status: String
+    public var steps: [ActivityStepRecord]?
     public var createdAt: Date
     public var updatedAt: Date
 
-    public init(id: String = UUID().uuidString, conversationID: String, title: String, stage: String, status: String = "running", createdAt: Date = .now, updatedAt: Date = .now) {
+    public init(id: String = UUID().uuidString, conversationID: String, title: String, stage: String, status: String = "running", steps: [ActivityStepRecord]? = [], createdAt: Date = .now, updatedAt: Date = .now) {
         self.id = id
         self.conversationID = conversationID
         self.title = title
         self.stage = stage
         self.status = status
+        self.steps = steps
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -209,9 +231,9 @@ public struct TranscriptMessage: Codable, Sendable {
 
 public enum WorkspaceSection: String, CaseIterable, Identifiable {
     case chat = "聊天"
-    case goals = "目标"
     case feed = "动态"
     case ideas = "点子"
+    case goals = "目标"
     case library = "资源库"
 
     public var id: String { rawValue }
@@ -228,6 +250,7 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
 }
 
 public enum OpenMuseSheet: Identifiable {
+    case companion
     case settings
     case memories
     case activity
@@ -236,6 +259,7 @@ public enum OpenMuseSheet: Identifiable {
 
     public var id: String {
         switch self {
+        case .companion: "companion"
         case .settings: "settings"
         case .memories: "memories"
         case .activity: "activity"

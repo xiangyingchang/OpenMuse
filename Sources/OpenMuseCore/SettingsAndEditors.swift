@@ -490,69 +490,10 @@ public struct ActivityListView: View {
     public var body: some View {
         VStack(spacing: 0) {
             sheetHeader(title: "最近活动", subtitle: "显示真实的对话请求状态，不用估算进度。")
-            ScrollView {
-                VStack(spacing: 10) {
-                    if model.activities.isEmpty {
-                        Text("还没有活动。聊一个想做的事，它会从这里开始留下记录。")
-                            .font(.subheadline).foregroundStyle(EditorPalette.subtle)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(17)
-                            .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 15))
-                    }
-                    ForEach(model.activities) { activity in
-                        Button { model.openActivity(activity) } label: {
-                            HStack(alignment: .top, spacing: 11) {
-                                ActivityMark(status: activity.status)
-                                VStack(alignment: .leading, spacing: 5) {
-                                    HStack {
-                                        Text(activity.title).font(.subheadline.weight(.semibold)).foregroundStyle(EditorPalette.text)
-                                        Spacer(minLength: 6)
-                                        Text(activity.status.localizedActivityStatus).font(.caption2).foregroundStyle(EditorPalette.subtle)
-                                    }
-                                    Text(activity.stage).font(.caption).foregroundStyle(EditorPalette.subtle).frame(maxWidth: .infinity, alignment: .leading)
-                                    Text(activity.updatedAt.formatted(date: .numeric, time: .shortened)).font(.caption2).foregroundStyle(EditorPalette.subtle.opacity(0.75))
-                                }
-                            }
-                            .padding(13)
-                            .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 15))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
-                .frame(maxWidth: 640)
-                .frame(maxWidth: .infinity)
-            }
+            ActivityRecordsList(model: model)
         }
         .background(EditorPalette.background)
         .frame(minWidth: 360, minHeight: 440)
-    }
-}
-
-private struct ActivityMark: View {
-    let status: String
-
-    var body: some View {
-        ZStack {
-            Circle().fill(status == "running" ? EditorPalette.blue.opacity(0.18) : EditorPalette.background)
-            if status == "running" { ProgressView().controlSize(.small) }
-            else { Image(systemName: status == "completed" ? "checkmark" : status == "failed" ? "exclamationmark" : "pause.fill").font(.caption.weight(.bold)).foregroundStyle(status == "completed" ? .green : EditorPalette.subtle) }
-        }
-        .frame(width: 32, height: 32)
-    }
-}
-
-private extension String {
-    var localizedActivityStatus: String {
-        switch self {
-        case "running": "进行中"
-        case "completed": "已完成"
-        case "failed": "失败"
-        case "suspended": "已暂停"
-        case "cancelled": "已取消"
-        default: self
-        }
     }
 }
 
