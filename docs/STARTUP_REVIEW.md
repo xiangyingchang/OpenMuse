@@ -2,7 +2,7 @@
 
 ## 2026-10-10：实现已获授权，首轮正在进行
 
-用户以D31授权双端实现、必要测试、构建和可用设备安装。首轮工程采用Swift Package共享数据/模型层和XcodeGen双端工程；本地SQLite与核心Markdown已实现。当前首轮验证结果见[ITERATIONS](ITERATIONS.md)。Mac Pi和iOS独立模型调用已接入代码，真实模型端点尚未在OpenMuse内测试；跨设备Tailscale配对/同步及iPhone后台接管仍未验证，不会宣称已完成。
+用户以D31授权双端实现、必要测试、构建和可用设备安装。首轮工程采用Swift Package共享数据/模型层和XcodeGen双端工程；本地SQLite与核心Markdown已实现。当前首轮验证结果见[ITERATIONS](ITERATIONS.md)。2026-10-10 已通过真实 DeepSeek 调用验证 OpenAI 兼容直连、Mac Pi 与旅行目标/构件持久化；OpenAI 供应商切换、iPhone 真机界面和后台、跨设备 Tailscale/同步仍未验证。
 
 更新2026-10-10。本轮用户明确指定补齐文档，六类缺口均有可审核方案；不是六类功能已实现，也不等于逐项参数已批准。旧审查报告保留当时缺口，新方案从此页进入。
 
@@ -24,5 +24,7 @@
 2026-10-10 更新：K06 的本机聊天桥接和设备配对已在代码中实现并通过合成集成测试，配对后手机聊天可路由到 Mac 的 Pi；Mac Settings 提供单独的 Tailscale Serve 8443 私有路由启用动作。代码检查会拒绝覆盖该端口已有服务，并核验其他端口配置不变。真实 tailnet 端到端与蜂窝验收还未完成。该桥接只代转模型回合，Pi 工具仍关闭，Mac 本地文件/浏览器操作未完成；模型真实凭证和 iPhone 真机签名仍各自需要用户配置/参与。
 
 后续实测补记：当前 Mac 已启用独立 `8443/openmuse` Serve 路由，验证旧443根路由仍代理到原4387，Funnel也只在443。OpenMuse loopback `/health` 和 Mac 上三种 `curl` HTTPS 检查（默认、绕过代理、固定 tailnet IP）通过；OpenMuse `URLSession` 报 SecureTransport `-9816`。Apple 对该码的定义是服务端关闭会话但未发送通知，不足以判断为证书或 TLS 握手校验错误；具体差异未定位。当前 iPhone 的 Tailscale 节点离线，尚未真机配对，不能把 Serve 路由存在视为跨设备可用。待手机连入后分别验证 DNS、HTTPS、配对和聊天；社区中的 iPhone Serve HTTPS 报告仅作线索，详见 RUNTIME_PROTOCOL。
+
+2026-10-10 模型实测补记：真实 `deepseek-chat` 通过 `OpenAICompatibleRuntime` 直连成功；Mac `PiRuntime`（本机 Pi 1.0.4）连通测试成功。再通过 OpenMuse 模型层完成恩施 7 天旅行的两轮对话，确认目标、旅行构件和两条完成活动记录均写入本机 OpenMuse 工作区，并在重新打开模型后读回。DeepSeek 配置与凭证只保存在本机设置/登录钥匙串，凭证值没有写进仓库或验证日志。Mac Debug 与 iOS Simulator 构建通过，模拟器应用已安装并启动；本轮没有在 iPhone 真机或 App 界面内输入/点击，不能据此宣称真机验收。该 key 未同步到 iPhone；正式使用前应在已连接的设备上分别配置，并在撤销当前临时 key 后换新。详见 [ITERATIONS](ITERATIONS.md)。
 
 本页前文记录开工授权前状态。用户2026-10-10以D31明确进入代码阶段，替代此前“仍待授权”的门槛；无需重问D01–D30。若技术实验迫使改变重要产品承诺，记录失败并回到讨论。

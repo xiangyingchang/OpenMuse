@@ -63,3 +63,12 @@
 - 检查：iOS 17模拟器与Mac Debug构建成功；iPhone 17 Pro模拟器重新安装并启动成功；启动截图`.build/logs/muse-parity-ios-final.png`已实际查看；`git diff --check`通过。第一次截图在界面渲染前抓取为白屏，等待两秒后重抓确认正常。
 - 未做：未做真机截图、逐个导航点击、不同屏幕尺寸/辅助功能测试；头像仍为OpenMuse原创表情，导航符号为系统SF Symbols。截图缩放比例未知，按相对占屏比例复刻视觉层级，不声称Muse原始点数完全相同。
 - 证据：Muse源图仍仅保存在被忽略的`.research-local/`目录；最终OpenMuse模拟器截图保存在`.build/logs/`，均未加入提交。
+
+## 2026-10-10：DeepSeek 实际模型与旅行闭环
+
+- 范围：K03、K05；验证 DeepSeek 凭证保存、OpenAI 兼容直连、Mac Pi 模型回合，以及旅行目标/构件在本机工作区的保存与重开读取。
+- 真实服务：DeepSeek `deepseek-chat` 的 OpenAI 兼容直连成功；Mac Pi 1.0.4 的模型设置连通测试成功。模型凭证从本机登录钥匙串读取，配置保存在本机；凭证值未进入源码、版本控制或验证日志。
+- 真实产品流程：完成恩施 7 天旅行的两轮模型对话；OpenMuse 先建旅行目标，第二轮生成按天草案并保存旅行构件；两条活动均完成。关闭并重新创建模型后，目标、构件、两条回复与活动记录仍可读取。测试数据留在本机 OpenMuse 工作区，供后续打开应用体验。
+- 检查：两次临时真实服务测试均通过；常规 `swift test` 13项通过、0失败、2项按条件跳过（在线 Tailscale 地址与本地 Pi RPC 服务）；`OpenMuseMac` Debug 与 `OpenMuseiOS` Simulator 构建均成功。更新后的 `dist/OpenMuse.app` 通过 `codesign --verify --deep --strict`；iPhone 17 Pro Simulator 已安装并启动新版。
+- 未验证：当前 PUA 无法连接 iPhone，Xcode 也找不到该真机；因此没有验证真机 UI、iPhone 钥匙串或 iOS 内的真实点击聊天。Mac 界面没有完成逐项 UI 点击验收。OpenAI 真实供应商切换、模型流式/取消/usage、Tailscale 跨网和 Mac 文件/浏览器执行仍未完成。
+- 证据：本轮工具输出记录实时请求与构建结果；产品本机包为 `dist/OpenMuse.app/`，模拟器包为 `.build/derived-ios/Build/Products/Debug-iphonesimulator/OpenMuse.app/`。本次旅行对话使用真实模型并写入本机工作区，未将回复内容或密钥复制进公共文档。
