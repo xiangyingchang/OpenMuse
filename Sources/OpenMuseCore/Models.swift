@@ -447,15 +447,22 @@ public struct ConversationRecord: Codable, Identifiable, Equatable {
     public var parentConversationID: String?
     public var importedFrom: String?
     public var importedSourceID: String?
+    /// Marks the one continuous, user-facing main conversation. Optional so older workspace
+    /// records can be upgraded without a destructive schema migration.
+    public var isPrimary: Bool?
+    /// Keeps legacy primary sessions out of navigation after their messages are merged.
+    public var isArchived: Bool?
     public var createdAt: Date
     public var updatedAt: Date
 
-    public init(id: String = UUID().uuidString, title: String = "新对话", parentConversationID: String? = nil, importedFrom: String? = nil, importedSourceID: String? = nil, createdAt: Date = .now, updatedAt: Date = .now) {
+    public init(id: String = UUID().uuidString, title: String = "新对话", parentConversationID: String? = nil, importedFrom: String? = nil, importedSourceID: String? = nil, isPrimary: Bool? = nil, isArchived: Bool? = nil, createdAt: Date = .now, updatedAt: Date = .now) {
         self.id = id
         self.title = title
         self.parentConversationID = parentConversationID
         self.importedFrom = importedFrom
         self.importedSourceID = importedSourceID
+        self.isPrimary = isPrimary
+        self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -1050,6 +1057,7 @@ public struct ActivityOperationRecord: Codable, Identifiable, Equatable, Sendabl
 public struct ActivityRecord: Codable, Identifiable, Equatable {
     public var id: String
     public var conversationID: String
+    public var sourceMessageID: String?
     public var title: String
     public var stage: String
     public var status: String
@@ -1058,9 +1066,10 @@ public struct ActivityRecord: Codable, Identifiable, Equatable {
     public var createdAt: Date
     public var updatedAt: Date
 
-    public init(id: String = UUID().uuidString, conversationID: String, title: String, stage: String, status: String = "running", ownerDeviceID: String? = nil, steps: [ActivityStepRecord]? = [], createdAt: Date = .now, updatedAt: Date = .now) {
+    public init(id: String = UUID().uuidString, conversationID: String, sourceMessageID: String? = nil, title: String, stage: String, status: String = "running", ownerDeviceID: String? = nil, steps: [ActivityStepRecord]? = [], createdAt: Date = .now, updatedAt: Date = .now) {
         self.id = id
         self.conversationID = conversationID
+        self.sourceMessageID = sourceMessageID
         self.title = title
         self.stage = stage
         self.status = status

@@ -1,5 +1,9 @@
 # 开工状态与方案入口
 
+## 最新 iOS Release 包：2026-10-12（T80）
+
+已生成 iOS ARM64 Release Archive 并导出 IPA `0.1.0 (8)`；Personal Team 开发签名校验通过。最新产物在本机忽略目录 `.build/OpenMuse-T80-iOS-Release-final2/OpenMuse.ipa`，SHA-256 为 `7381c2b2dc3ec7ce3965c08f8581a348ac38576adf7f40823920c3817d1aa8f3`；profile 于2026-10-18到期。该版本尚未安装到手机，也没有在用户的实际本地数据库上执行迁移；验收日志、校验值和测试范围见 [T80](ITERATIONS.md#t80)。
+
 ## 最新设备版本：2026-10-12 iPhone 16 Pro 安装（T78）
 
 当前源码以 Personal Team 签名为 `0.1.0 (6)`，安装到 iPhone 16 Pro / iOS 27.2；设备应用清单确认版本号，`devicectl` 启动成功，`codesign --verify --deep --strict` 通过。没有进行 PUA 视觉页面验收、模型请求或核心旅行流程重测。构建与安装日志见 [T78](ITERATIONS.md#t78)。

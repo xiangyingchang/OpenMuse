@@ -18,6 +18,10 @@ targets:
         CFBundleDisplayName: OpenMuse
         CFBundleShortVersionString: 0.1.0
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        BGTaskSchedulerPermittedIdentifiers:
+          - org.openmuse.ios.maintenance-review
+        UIBackgroundModes:
+          - fetch
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -38,7 +42,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios
         PRODUCT_NAME: OpenMuse
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 7
+        CURRENT_PROJECT_VERSION: 8
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

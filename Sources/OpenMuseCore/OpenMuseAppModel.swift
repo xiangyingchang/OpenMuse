@@ -226,11 +226,14 @@ public final class OpenMuseAppModel: ObservableObject {
             openedArtifactAssetStore = artifactAssetStore
             resolvedWorkspaceURL = root
 
+            _ = try ConversationContinuity.ensurePrimary(in: database)
             let storedConversations = try database.load(ConversationRecord.self, kind: RecordKind.conversation)
-            if let mostRecent = storedConversations.max(by: { $0.updatedAt < $1.updatedAt }) {
+            if let mostRecent = storedConversations
+                .filter({ $0.isArchived != true && $0.importedFrom == nil && $0.importedSourceID == nil })
+                .max(by: { $0.updatedAt < $1.updatedAt }) {
                 loadedConversation = mostRecent
-            } else {
-                try database.save(loadedConversation, kind: RecordKind.conversation, id: loadedConversation.id)
+            } else if let primary = storedConversations.first(where: { $0.isPrimary == true }) {
+                loadedConversation = primary
             }
             #if DEBUG
             if uiTestSeedGoalProgress,
@@ -358,7 +361,7 @@ public final class OpenMuseAppModel: ObservableObject {
             conversations = (storedConversations.isEmpty ? [loadedConversation] : storedConversations)
                 .sorted { $0.updatedAt > $1.updatedAt }
             let allMessages = try database.load(MessageRecord.self, kind: RecordKind.message)
-            messages = allMessages.filter { $0.conversationID == loadedConversation.id }.sorted { $0.createdAt < $1.createdAt }
+            messages = ConversationContinuity.orderedMessages(allMessages.filter { $0.conversationID == loadedConversation.id })
             let loadedAttachments = try database.load(AttachmentRecord.self, kind: RecordKind.attachment)
             attachments = loadedAttachments
             try attachmentStore.removeOrphanedFiles(keeping: Set(loadedAttachments.map(\.id)))
@@ -894,13 +897,17 @@ public final class OpenMuseAppModel: ObservableObject {
     #endif
 
     private func reloadWorkspaceState(database: SQLiteStore) throws {
+        let previousConversationID = conversation.id
+        _ = try ConversationContinuity.ensurePrimary(in: database)
         let storedConversations = try database.load(ConversationRecord.self, kind: RecordKind.conversation).sorted { $0.updatedAt > $1.updatedAt }
         conversations = storedConversations
-        if let refreshedConversation = storedConversations.first(where: { $0.id == conversation.id }) {
+        if let refreshedConversation = storedConversations.first(where: { $0.id == previousConversationID && $0.isArchived != true }) {
             conversation = refreshedConversation
+        } else if let primary = storedConversations.first(where: { $0.isPrimary == true && $0.isArchived != true }) {
+            conversation = primary
         }
         let allMessages = try database.load(MessageRecord.self, kind: RecordKind.message)
-        messages = allMessages.filter { $0.conversationID == conversation.id }.sorted { $0.createdAt < $1.createdAt }
+        messages = ConversationContinuity.orderedMessages(allMessages.filter { $0.conversationID == conversation.id })
         attachments = try database.load(AttachmentRecord.self, kind: RecordKind.attachment)
         try attachmentStore?.removeOrphanedFiles(keeping: Set(attachments.map(\.id)))
         goals = try database.load(GoalRecord.self, kind: RecordKind.goal).sorted { $0.updatedAt > $1.updatedAt }
@@ -1166,7 +1173,8 @@ public final class OpenMuseAppModel: ObservableObject {
     }
 
     public func beginNewConversation() {
-        beginConversation(parentConversationID: nil)
+        guard let primary = conversations.first(where: { $0.isPrimary == true && $0.isArchived != true }) else { return }
+        openConversation(primary.id)
     }
 
     public func beginSideConversation(parentConversationID: String? = nil) {
@@ -1192,7 +1200,7 @@ public final class OpenMuseAppModel: ObservableObject {
     }
 
     public func openConversation(_ id: String) {
-        guard let stored = conversations.first(where: { $0.id == id }) else { return }
+        guard let stored = conversations.first(where: { $0.id == id && $0.isArchived != true }) else { return }
         guard !isSending else {
             statusText = "当前任务结束或取消前，暂时不能切换或新建对话。"
             return
@@ -1206,7 +1214,7 @@ public final class OpenMuseAppModel: ObservableObject {
         draftsByConversation[conversation.id] = draft
         conversation = stored
         let allMessages = (try? database?.load(MessageRecord.self, kind: RecordKind.message)) ?? []
-        messages = allMessages.filter { $0.conversationID == stored.id }.sorted { $0.createdAt < $1.createdAt }
+        messages = ConversationContinuity.orderedMessages(allMessages.filter { $0.conversationID == stored.id })
         draft = draftsByConversation[stored.id] ?? ""
         presentedArtifact = nil
         selectedSection = .chat
@@ -1526,7 +1534,8 @@ public final class OpenMuseAppModel: ObservableObject {
         let goal = detectedGoal.flatMap { updatedGoal in goals.first(where: { $0.id == updatedGoal.id }) } ?? detectedGoal
         let activity = ActivityRecord(
             conversationID: conversation.id,
-            title: goal?.title ?? "继续聊一聊",
+            sourceMessageID: userMessage.id,
+            title: ActivityTitle.make(from: text.isEmpty ? "处理分享的附件" : text, goalTitle: goal?.title),
             stage: "正在理解你的消息",
             ownerDeviceID: database.deviceID,
             steps: [
@@ -4533,7 +4542,7 @@ public final class OpenMuseAppModel: ObservableObject {
 
     private func persistConversationTitle(from text: String) throws {
         guard let database else { return }
-        if conversation.title == "新对话" {
+        if conversation.isPrimary != true && conversation.title == "新对话" {
             conversation.title = String(text.prefix(24))
         }
         conversation.updatedAt = .now

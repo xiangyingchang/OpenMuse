@@ -49,12 +49,63 @@ final class OpenMuseNavigationUITests: XCTestCase {
 
         app.buttons["身份"].tap()
         XCTAssertTrue(app.staticTexts["身份与记忆"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["已确认的记忆"].exists)
+        XCTAssertTrue(app.staticTexts["当前记忆"].exists)
+        XCTAssertTrue(app.staticTexts["这里管理同一份结构化记忆；过期或尚未生效的记录仍可在此查看和调整。MEMORY.md 自动维护区只展示当前有效记忆，完整且可迁移；USER.md 是精简画像，GLOBAL.md 是主题索引。明确表达可自动记录，导入或推断先经你确认；编辑同步到同一记录，撤销保留修订，彻底忘记会清除记录。"].exists)
         XCTAssertTrue(app.staticTexts["明确告诉 OpenMuse“记住……”或表达稳定偏好后，记忆会列在这里。外部资料和推断不会自动写成事实。"].exists)
         XCTAssertTrue(app.staticTexts["SOUL.md"].exists)
 
         app.buttons["关闭陪伴者面板"].tap()
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 3))
+    }
+
+    func testSidebarKeepsOnePrimaryChatAndCreatesIndependentSideChat() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = ["-openmuse-ui-test-workspace", UUID().uuidString]
+        app.launch()
+        XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
+
+        app.buttons["打开侧栏"].tap()
+        XCTAssertTrue(app.staticTexts["主要聊天"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 1)
+
+        app.buttons["打开主聊或新建旁聊"].tap()
+        app.buttons["新建旁聊"].tap()
+        app.buttons["打开侧栏"].tap()
+        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 1)
+        XCTAssertTrue(app.staticTexts["新旁聊"].exists)
+
+        app.buttons["打开主聊或新建旁聊"].tap()
+        app.buttons["打开主聊"].tap()
+        app.buttons["打开侧栏"].tap()
+        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 1)
+    }
+
+    func testDreamingPlanControlsStayReadableWhenEnabled() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = ["-openmuse-ui-test-workspace", UUID().uuidString]
+        app.launch()
+        XCTAssertTrue(app.buttons["OpenMuse，查看活动、设备与身份"].waitForExistence(timeout: 10))
+        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["身份"].tap()
+
+        let automaticReview = app.switches["dreaming-review-auto-toggle"]
+        XCTAssertTrue(automaticReview.waitForExistence(timeout: 3))
+        XCTAssertFalse(app.descendants(matching: .any)["dreaming-plan-settings"].exists)
+        automaticReview.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["dreaming-plan-settings"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "22:00")).firstMatch.exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "08:00")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["每日请求上限"].exists)
+        XCTAssertTrue(app.staticTexts["每日 Token 上限"].exists)
+        XCTAssertTrue(app.staticTexts["单次输出上限"].exists)
+        XCTAssertTrue(app.staticTexts["20 次"].exists)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Dreaming 设置布局"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 
     func testComposerResourceEntryAndKeyboardHideBottomTabs() {

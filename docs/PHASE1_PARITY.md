@@ -102,3 +102,7 @@ Xcode CLI 这次通过本机 Personal Team 自动签名构建，但 Signing & Ca
 OpenAI-compatible 的工具调用回复现在按 SSE 文本增量更新；Mac Pi 使用 RPC `message_update.assistantMessageEvent.text_delta`，经仅对配对设备开放的活动轮询通道送到 iPhone。强制 iSH/浏览器操作时，在模型实际返回要求的工具调用前暂存文字，失败关闭时不把普通模型文字误显示成执行结果。模型关闭流式能力时仍按完整响应展示。
 
 相关 Core fixture 覆盖 SSE 工具参数分片、回复顺序、Pi 增量、认证桥接增量、强制工具失败不泄露普通文字；iOS Simulator、iPhone ARM64 签名 Build 7 和 Mac Debug 构建通过，模拟器聊天首屏/陪伴者入口 UI 用例1/1通过。最终全量测试执行252项、2项条件跳过、0失败。Build 7 签名、profile 及 iPhone 16 Pro UDID 匹配均已核对；安装命令因设备当前 unavailable 失败。本轮没有真机动效、真实供应商首字延迟或 iPhone→Mac 在线对话验收。完整一期仍未通过。
+
+## 2026-10-12 主聊连续性、活动标题与身份页易读性（T80）
+
+代码已将旧本地根会话并入唯一主聊，保留旁聊和导入聊天边界，并迁移消息附件关联；新活动按目标或实际请求命名，并在有一分钟内的同会话来源消息时回填历史通用标题。Dreaming 设置在窄屏下分组并折叠可选细项；身份页说明过期/未生效记忆仍可管理，`MEMORY.md` 自动维护区、`USER.md` 和 `GLOBAL.md` 只投影当前有效记录。三项 Core 定向测试3/3通过；目标侧栏和 Dreaming UI 用例分别1/1通过。Release IPA `0.1.0 (8)` 已导出并验签，尚未安装真机；真实用户数据迁移、旧活动无近邻来源的回填、模型请求和连续对话真机回归仍待验。因此 V1a 仍为部分通过，不表示一期总体验收完成。细节、截图存放与签名有效期见 [T80](ITERATIONS.md#t80) 和 [D43](DECISIONS.md)。

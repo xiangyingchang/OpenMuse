@@ -744,3 +744,13 @@
 - 文档：更新 [MEMORY_STORAGE](MEMORY_STORAGE.md)、[PRD](PRD.md)、[PHASE1_PARITY](PHASE1_PARITY.md)、[机制对照](MEMORY_RUNTIME_COMPARISON_2026-10-11.md)、[研究更新](muse-research/UPDATES.md) 与讨论索引 T72。
 - 验证：`swift test --filter DreamingReviewTests` 执行21项、21通过、0失败；覆盖反思原话验证、记录来源约束、旧记录解码、含聊天归档保留反思、不含聊天省略私密记录、遗忘清理和同步载荷。`git diff --check` 通过。没有运行完整测试、双端构建或真机回归；本轮改动未触及其他平台特定代码。
 - 未完成：反思记录目前身份页只展示最近三次；更深的历史浏览、导出、跨周主题巩固、模型采纳反馈和后续行为效果评价尚无专门 UX/实现。该方案不声称 dreaming 闭环已完成。
+
+## T80：2026-10-12 主聊连续性、活动标题与身份页可读性
+
+- 需求与参考：用户反馈侧栏出现多个主聊天、活动记录都叫“继续聊一聊”、Dreaming 设置拥挤，并询问“已确认记忆”与 `MEMORY.md` 是否重复。对照本机 Muse 截图，确认可见层面将主要聊天与旁聊分区；活动列表用具体任务标题，阶段作为说明。截图只能证明界面呈现，不能推断 Muse 的内部数据或标题算法。Muse 原图留在忽略目录，不进公开仓库；本轮 OpenMuse Dreaming 模拟器截图保存在 `.research-local/openmuse-device/2026-10-12/T80-dreaming-settings.png`。
+- 根因：OpenMuse 将每个无父会话都放进“聊天”分组，“新对话”新建根会话；普通回复的活动标题无目标时固定回退到“继续聊一聊”。Dreaming 同时平铺计划细项，窄屏下时间与长标签挤在一起。记忆列表未说明自己是结构化记录的管理界面，也未说明三个 Markdown 视图的差异。
+- 实现：增加向后兼容的可选主聊/归档标记。启动和同步后确定唯一主聊，将旧本地根会话消息按时间归并，迁移消息附件、目标、构件、活动和任务执行的会话关联；旧会话行保留为隐藏迁移痕迹。旁聊继续独立、重新挂在主聊下；导入的 AI 聊天不参与合并。若旧会话在另一设备迟到同步消息或旁聊，加载时再次归并。侧栏只显示一个“主聊”和旁聊，打开主聊回到同一条记录。
+- 活动：新活动关联来源消息 ID；标题优先采用目标名，否则从用户请求提取不超过28字的标题，状态与阶段仍单独显示。升级时仅对同一非导入会话中一分钟内且尚未关联的用户请求回填旧通用标题；找不到可靠来源时保留原数据，不猜。
+- Dreaming 与记忆：设置按说明、手动回顾、自动开关、计划预算和回顾记录分组；自动关闭时隐藏细项，历史记录折叠，时段使用定宽 `HH:00`，预算标签和值分开。身份页改为“当前记忆”，说明活跃 claim 列表包含过期/未生效项供调整并展示有效期；`MEMORY.md` 自动维护区只投影当前有效记录，`USER.md` 是当前用户画像，`GLOBAL.md` 是主题索引。它们是同一结构化真值的不同视图；更正写回同一记录，外部导入和推断先确认，修订保留来源。
+- 验证：`swift test --scratch-path .build/core-test-final --filter ConversationContinuityTests` 执行3项、3通过，覆盖旧根会话、附件和关联数据迁移、旁聊与导入隔离、迟到同步归并、活动标题回填边界和标题截断。iPhone 17 Pro / iOS 26.5 Simulator 上目标 UI 用例分别通过：侧栏主聊/旁聊用例1/1，Dreaming 布局用例1/1；后一结果包 `.build/openmuse-t80-ui/Logs/Test/Test-OpenMuseiOS-2026.10.12_19-51-46-+0800.xcresult`。最终源码合并重跑时，模拟器在测试 runner 启动前卡黑屏；新模拟器重试停在 runner 调度阶段，均未作为通过结果。`git diff --check` 通过。
+- Release：iOS ARM64 Release Archive 和 Personal Team 开发签名 IPA 导出成功，bundle `org.openmuse.ios`，版本 `0.1.0 (8)`；`codesign --verify --deep --strict` 通过，二进制确认 arm64。最新 IPA `.build/OpenMuse-T80-iOS-Release-final2/OpenMuse.ipa`，SHA-256 `7381c2b2dc3ec7ce3965c08f8581a348ac38576adf7f40823920c3817d1aa8f3`，大小9.6 MB；iOS Team Provisioning Profile 有2台设备名额、于2026-10-18到期。Archive/export 日志在 `.build/logs/openmuse-t80-ios-release-final2.log`、`.build/logs/openmuse-t80-ios-release-export-final3.log`。本轮未安装真机，未用用户实际 SQLite 执行迁移，也未复测模型请求；这些 UI/Core 结果不能代替安装后验收。完整需求仍以 PRD 和 [一期对照表](PHASE1_PARITY.md) 为准。

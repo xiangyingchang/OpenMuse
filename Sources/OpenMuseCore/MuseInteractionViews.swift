@@ -19,8 +19,9 @@ struct NavigationDrawerView: View {
 
     private var visibleConversations: [ConversationRecord] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !needle.isEmpty else { return model.conversations }
-        return model.conversations.filter { $0.title.localizedCaseInsensitiveContains(needle) }
+        let available = model.conversations.filter { $0.isArchived != true }
+        guard !needle.isEmpty else { return available }
+        return available.filter { $0.title.localizedCaseInsensitiveContains(needle) }
     }
 
     var body: some View {
@@ -74,8 +75,12 @@ struct NavigationDrawerView: View {
                         }
                     }
 
-                    conversationGroup("聊天", values: visibleConversations.filter { $0.parentConversationID == nil })
+                    conversationGroup("主要聊天", values: visibleConversations.filter { $0.isPrimary == true })
                     conversationGroup("旁聊", values: visibleConversations.filter { $0.parentConversationID != nil })
+                    let importedConversations = visibleConversations.filter { $0.importedFrom != nil && $0.parentConversationID == nil }
+                    if !importedConversations.isEmpty {
+                        conversationGroup("导入的聊天", values: importedConversations)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 18)
@@ -89,7 +94,7 @@ struct NavigationDrawerView: View {
                     .font(.subheadline)
                     .accessibilityLabel("搜索对话")
                 Menu {
-                    Button("新对话", systemImage: "square.and.pencil") {
+                    Button("打开主聊", systemImage: "bubble.left") {
                         model.beginNewConversation()
                         onClose()
                     }
@@ -104,7 +109,7 @@ struct NavigationDrawerView: View {
                         .frame(width: 42, height: 42)
                         .background(OpenMusePalette.selected, in: Circle())
                 }
-                .accessibilityLabel("新建对话")
+                .accessibilityLabel("打开主聊或新建旁聊")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -118,7 +123,7 @@ struct NavigationDrawerView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(OpenMusePalette.subtle)
             if values.isEmpty {
-                Text(title == "旁聊" ? "复杂的事情可以开一个旁聊，主聊会留在原处。" : "新对话会显示在这里。")
+                Text(title == "旁聊" ? "复杂的事情可以开一个旁聊，主聊会留在原处。" : title == "主要聊天" ? "在这里继续和 OpenMuse 聊天。" : "没有符合搜索条件的聊天。")
                     .font(.caption).foregroundStyle(OpenMusePalette.subtle.opacity(0.82))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 6)
@@ -129,13 +134,14 @@ struct NavigationDrawerView: View {
                         onClose()
                     } label: {
                         HStack(spacing: 9) {
-                            Image(systemName: conversation.parentConversationID == nil ? "bubble.left" : "arrow.turn.down.right")
+                            Image(systemName: conversation.isPrimary == true ? "bubble.left" : conversation.parentConversationID == nil ? "bubble.left" : "arrow.turn.down.right")
                                 .foregroundStyle(OpenMusePalette.subtle)
                                 .frame(width: 21)
-                            Text(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
+                            Text(conversation.isPrimary == true ? "主聊" : conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
                                 .font(.subheadline)
                                 .foregroundStyle(OpenMusePalette.text)
                                 .lineLimit(1)
+                                .accessibilityIdentifier(conversation.isPrimary == true ? "primary-conversation-title" : "conversation-title-\(conversation.id)")
                             if let importedFrom = conversation.importedFrom {
                                 Text(importedFrom)
                                     .font(.caption2)

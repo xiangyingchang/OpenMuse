@@ -1007,7 +1007,10 @@ public struct MemoryFilesView: View {
                     DreamingReviewPanel(model: model)
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("已确认的记忆").font(.headline).foregroundStyle(EditorPalette.text)
+                        Text("当前记忆").font(.headline).foregroundStyle(EditorPalette.text)
+                        Text("这里管理同一份结构化记忆；过期或尚未生效的记录仍可在此查看和调整。MEMORY.md 自动维护区只展示当前有效记忆，完整且可迁移；USER.md 是精简画像，GLOBAL.md 是主题索引。明确表达可自动记录，导入或推断先经你确认；编辑同步到同一记录，撤销保留修订，彻底忘记会清除记录。")
+                            .font(.caption).foregroundStyle(EditorPalette.subtle)
+                            .fixedSize(horizontal: false, vertical: true)
                         let activeClaims = model.memoryClaims.filter { $0.status == "active" }
                         if activeClaims.isEmpty {
                             Text("明确告诉 OpenMuse“记住……”或表达稳定偏好后，记忆会列在这里。外部资料和推断不会自动写成事实。")
@@ -1314,6 +1317,7 @@ private struct ChatArchiveImportPreview: View {
 
 private struct DreamingReviewPanel: View {
     @ObservedObject var model: OpenMuseAppModel
+    @State private var showsRecentRuns = false
 
     private var enabledBinding: Binding<Bool> {
         Binding(
@@ -1326,10 +1330,10 @@ private struct DreamingReviewPanel: View {
         VStack(alignment: .leading, spacing: 11) {
             Label("Dreaming · 记忆整理", systemImage: "sparkles")
                 .font(.headline).foregroundStyle(EditorPalette.text)
-            Text("Dreaming 会回看近期对话，整理可能值得长期记住的变化，也反思怎样更适合与你协作。反思连同原话依据保存在回顾记录里；只有你确认的记忆或协作习惯才会进入 MEMORY.md 或 SOUL.md。")
+            Text("回看近期对话，整理值得保留的变化和协作反思。它只提出建议；确认后才会更新记忆或 SOUL.md。")
                 .font(.caption).foregroundStyle(EditorPalette.subtle)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("每次回顾最多读取最近 7 天、24 条原创对话和相关已确认记忆；内容会发送给当前选择的模型服务。")
+            Text("最多读取最近 7 天、24 条原创对话和相关记忆；内容会发送给当前选择的模型服务。")
                 .font(.caption2).foregroundStyle(EditorPalette.subtle)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1355,73 +1359,61 @@ private struct DreamingReviewPanel: View {
                 .font(.caption.weight(.medium))
                 .tint(EditorPalette.blue)
                 .accessibilityIdentifier("dreaming-review-auto-toggle")
-            HStack(spacing: 8) {
-                Text("安静时段")
-                hourPicker(title: "开始", value: model.maintenancePreferences.quietHoursStart, isStart: true)
-                Text("至").foregroundStyle(EditorPalette.subtle)
-                hourPicker(title: "结束", value: model.maintenancePreferences.quietHoursEnd, isStart: false)
-            }
-            .font(.caption)
-            .foregroundStyle(EditorPalette.subtle)
-            VStack(alignment: .leading, spacing: 5) {
-                Stepper(
-                    "每日主动请求上限：\(model.maintenancePreferences.maximumRequestsPerDay) 次",
-                    value: Binding(
-                        get: { model.maintenancePreferences.maximumRequestsPerDay },
-                        set: { model.setMaintenanceBudget(requestsPerDay: $0) }
-                    ), in: 1...100
-                )
-                Stepper(
-                    "每日预留上限：\(model.maintenancePreferences.maximumTokensPerDay) tokens",
-                    value: Binding(
-                        get: { model.maintenancePreferences.maximumTokensPerDay },
-                        set: { model.setMaintenanceBudget(tokensPerDay: $0) }
-                    ), in: 512...1_000_000, step: 1_000
-                )
-                Stepper(
-                    "单次输出上限：\(model.maintenancePreferences.maximumOutputTokensPerRun) tokens",
-                    value: Binding(
-                        get: { model.maintenancePreferences.maximumOutputTokensPerRun },
-                        set: { model.setMaintenanceBudget(outputTokensPerRun: $0) }
-                    ), in: 128...4_096, step: 128
-                )
-            }
-            .font(.caption)
-            .foregroundStyle(EditorPalette.text)
-            HStack(spacing: 8) {
-                Text("计划时区")
-                Picker("计划时区", selection: Binding(
-                    get: { model.maintenancePreferences.timeZoneIdentifier },
-                    set: { model.setMaintenanceTimeZone(identifier: $0) }
-                )) {
-                    ForEach(Array(Set([TimeZone.current.identifier, "Asia/Shanghai", "UTC", "America/Los_Angeles", "Europe/London"])).sorted(), id: \.self) { identifier in
-                        Text(identifier).tag(identifier)
+            if model.maintenancePreferences.enabled {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("计划").font(.subheadline.weight(.semibold)).foregroundStyle(EditorPalette.text)
+                    HStack(spacing: 8) {
+                        Text("安静时段").foregroundStyle(EditorPalette.subtle)
+                        Spacer(minLength: 4)
+                        hourMenu(title: "开始", value: model.maintenancePreferences.quietHoursStart, isStart: true)
+                        Text("至").foregroundStyle(EditorPalette.subtle)
+                        hourMenu(title: "结束", value: model.maintenancePreferences.quietHoursEnd, isStart: false)
                     }
+                    .font(.caption)
+                    .accessibilityIdentifier("dreaming-quiet-hours")
+
+                    Divider().overlay(EditorPalette.subtle.opacity(0.25))
+                    budgetRow(
+                        title: "每日请求上限", value: model.maintenancePreferences.maximumRequestsPerDay, unit: "次",
+                        range: 1...100, step: 1, accessibilityID: "dreaming-request-budget"
+                    ) { model.setMaintenanceBudget(requestsPerDay: $0) }
+                    budgetRow(
+                        title: "每日 Token 上限", value: model.maintenancePreferences.maximumTokensPerDay, unit: "Token",
+                        range: 512...1_000_000, step: 1_000, accessibilityID: "dreaming-token-budget"
+                    ) { model.setMaintenanceBudget(tokensPerDay: $0) }
+                    budgetRow(
+                        title: "单次输出上限", value: model.maintenancePreferences.maximumOutputTokensPerRun, unit: "Token",
+                        range: 128...4_096, step: 128, accessibilityID: "dreaming-output-budget"
+                    ) { model.setMaintenanceBudget(outputTokensPerRun: $0) }
+
+                    settingsMenuRow(title: "计划时区", identifier: "dreaming-time-zone") {
+                        Picker("计划时区", selection: Binding(
+                            get: { model.maintenancePreferences.timeZoneIdentifier },
+                            set: { model.setMaintenanceTimeZone(identifier: $0) }
+                        )) {
+                            ForEach(Array(Set([TimeZone.current.identifier, "Asia/Shanghai", "UTC", "America/Los_Angeles", "Europe/London"])).sorted(), id: \.self) { identifier in
+                                Text(identifier).tag(identifier)
+                            }
+                        }
+                    }
+                    settingsMenuRow(title: "错过计划时", identifier: "dreaming-missed-run-policy") {
+                        Picker("错过计划时", selection: Binding(
+                            get: { model.maintenancePreferences.missedRunPolicy },
+                            set: { model.setMaintenanceMissedRunPolicy($0) }
+                        )) {
+                            Text("打开 App 后补做").tag("show-on-next-open")
+                            Text("跳过当天").tag("skip")
+                        }
+                    }
+
+                    Text("iOS 后台可能延迟或不运行；失败时会在下次打开 App 后补做。预算写入 HEARTBEAT.md，是本地 Token 估算限额，不是供应商账单上限。")
+                        .font(.caption2).foregroundStyle(EditorPalette.subtle)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                Spacer()
+                .padding(12)
+                .background(EditorPalette.background, in: RoundedRectangle(cornerRadius: 13))
+                .accessibilityIdentifier("dreaming-plan-settings")
             }
-            HStack(spacing: 8) {
-                Text("错过计划时")
-                Picker("错过计划时", selection: Binding(
-                    get: { model.maintenancePreferences.missedRunPolicy },
-                    set: { model.setMaintenanceMissedRunPolicy($0) }
-                )) {
-                    Text("打开 App 后补做").tag("show-on-next-open")
-                    Text("跳过当天").tag("skip")
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                Spacer()
-            }
-            .font(.caption)
-            Text("自动回顾默认关闭。开启后，OpenMuse 会在安静时段结束后请求一次 iOS 后台刷新；系统可能延后或不运行，失败时会在下次打开 App 后补做。每天最多成功一次，失败最多重试一次；不会保证锁屏准时执行，强制退出后也可能不再唤醒。")
-                .font(.caption2).foregroundStyle(EditorPalette.subtle)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("请求上限和 Token 预算都写入 HEARTBEAT.md，并在发送前预留；输入 Token 按文本长度保守估算，属于本地请求保护，不是供应商货币账单上限。")
-                .font(.caption2).foregroundStyle(EditorPalette.subtle)
-                .fixedSize(horizontal: false, vertical: true)
 
             if let maintenanceStatus = model.maintenanceStatus {
                 Text(maintenanceStatus)
@@ -1430,36 +1422,42 @@ private struct DreamingReviewPanel: View {
                     .accessibilityIdentifier("dreaming-review-status")
             }
 
-            ForEach(model.maintenanceRuns.prefix(3)) { run in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(run.status == "completed" ? "回顾完成" : run.status == "failed" ? "回顾失败" : "正在回顾")
-                        .font(.caption.weight(.semibold)).foregroundStyle(EditorPalette.text)
-                    Text("\(run.startedAt.formatted(date: .abbreviated, time: .shortened)) · \(run.provider) / \(run.model)")
-                        .font(.caption2).foregroundStyle(EditorPalette.subtle)
-                    if !run.summary.isEmpty {
-                        Text(run.summary).font(.caption).foregroundStyle(EditorPalette.subtle)
-                    }
-                    if let reflection = run.reflection, !reflection.isEmpty {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("协作反思").font(.caption.weight(.semibold)).foregroundStyle(EditorPalette.text)
-                            Text(reflection).font(.caption).foregroundStyle(EditorPalette.text)
-                            ForEach(run.reflectionEvidence ?? [], id: \.sourceMessageID) { evidence in
-                                Text("原话线索：「\(evidence.quote)」")
-                                    .font(.caption2).foregroundStyle(EditorPalette.subtle)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Text("反思仅供你查看，不会自动写成用户事实或进入后续提示词。")
+            if !model.maintenanceRuns.isEmpty {
+                DisclosureGroup("最近回顾记录（\(model.maintenanceRuns.count)）", isExpanded: $showsRecentRuns) {
+                    ForEach(model.maintenanceRuns.prefix(3)) { run in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(run.status == "completed" ? "回顾完成" : run.status == "failed" ? "回顾失败" : "正在回顾")
+                                .font(.caption.weight(.semibold)).foregroundStyle(EditorPalette.text)
+                            Text("\(run.startedAt.formatted(date: .abbreviated, time: .shortened)) · \(run.provider) / \(run.model)")
                                 .font(.caption2).foregroundStyle(EditorPalette.subtle)
+                            if !run.summary.isEmpty {
+                                Text(run.summary).font(.caption).foregroundStyle(EditorPalette.subtle)
+                            }
+                            if let reflection = run.reflection, !reflection.isEmpty {
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text("协作反思").font(.caption.weight(.semibold)).foregroundStyle(EditorPalette.text)
+                                    Text(reflection).font(.caption).foregroundStyle(EditorPalette.text)
+                                    ForEach(run.reflectionEvidence ?? [], id: \.sourceMessageID) { evidence in
+                                        Text("原话线索：「\(evidence.quote)」")
+                                            .font(.caption2).foregroundStyle(EditorPalette.subtle)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Text("反思只供查看，不会自动变成用户事实或进入后续提示词。")
+                                        .font(.caption2).foregroundStyle(EditorPalette.subtle)
+                                }
+                                .padding(.top, 3)
+                            }
+                            if let failure = run.failureMessage {
+                                Text(failure).font(.caption2).foregroundStyle(EditorPalette.subtle)
+                            }
                         }
-                        .padding(.top, 3)
-                    }
-                    if let failure = run.failureMessage {
-                        Text(failure).font(.caption2).foregroundStyle(EditorPalette.subtle)
+                        .padding(11)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(EditorPalette.background, in: RoundedRectangle(cornerRadius: 12))
                     }
                 }
-                .padding(11)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(EditorPalette.background, in: RoundedRectangle(cornerRadius: 12))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(EditorPalette.subtle)
             }
 
             let pending = model.maintenanceProposals.filter { $0.status == "pending" }
@@ -1540,19 +1538,69 @@ private struct DreamingReviewPanel: View {
         .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 18))
     }
 
-    private func hourPicker(title: String, value: Int, isStart: Bool) -> some View {
-        Picker(title, selection: Binding(
-            get: { value },
-            set: { newValue in
-                let preferences = model.maintenancePreferences
-                model.setMaintenanceQuietHours(start: isStart ? newValue : preferences.quietHoursStart, end: isStart ? preferences.quietHoursEnd : newValue)
+    private func hourMenu(title: String, value: Int, isStart: Bool) -> some View {
+        Menu {
+            ForEach(0..<24, id: \.self) { hour in
+                Button(String(format: "%02d:00", hour)) {
+                    let preferences = model.maintenancePreferences
+                    model.setMaintenanceQuietHours(start: isStart ? hour : preferences.quietHoursStart, end: isStart ? preferences.quietHoursEnd : hour)
+                }
             }
-        )) {
-            ForEach(0..<24, id: \.self) { hour in Text(String(format: "%02d:00", hour)).tag(hour) }
+        } label: {
+            HStack(spacing: 4) {
+                Text(String(format: "%02d:00", value)).monospacedDigit()
+                Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+            }
+            .foregroundStyle(EditorPalette.blue)
+            .frame(minWidth: 70, minHeight: 34)
+            .padding(.horizontal, 8)
+            .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 9))
+            .contentShape(Rectangle())
         }
-        .labelsHidden()
-        .pickerStyle(.menu)
-        .accessibilityLabel("安静时段\(title)")
+        .accessibilityLabel("安静时段\(title)：\(String(format: "%02d:00", value))")
+        .accessibilityIdentifier(isStart ? "dreaming-quiet-start" : "dreaming-quiet-end")
+    }
+
+    private func budgetRow(
+        title: String,
+        value: Int,
+        unit: String,
+        range: ClosedRange<Int>,
+        step: Int,
+        accessibilityID: String,
+        setValue: @escaping (Int) -> Void
+    ) -> some View {
+        HStack(spacing: 7) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(EditorPalette.text)
+                .lineLimit(2)
+            Spacer(minLength: 2)
+            Text("\(value.formatted()) \(unit)")
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(EditorPalette.subtle)
+                .frame(minWidth: 72, alignment: .trailing)
+            Stepper(title, value: Binding(get: { value }, set: setValue), in: range, step: step)
+                .labelsHidden()
+                .fixedSize()
+                .accessibilityIdentifier(accessibilityID)
+        }
+    }
+
+    private func settingsMenuRow<Content: View>(
+        title: String,
+        identifier: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(title).font(.caption).foregroundStyle(EditorPalette.text)
+            Spacer(minLength: 4)
+            content()
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+                .accessibilityIdentifier(identifier)
+        }
     }
 
     private func kindTitle(_ kind: String) -> String {
