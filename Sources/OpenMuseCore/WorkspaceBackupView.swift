@@ -23,7 +23,7 @@ public struct WorkspaceBackupPanel: View {
             Label("备份与恢复", systemImage: "externaldrive.badge.timemachine")
                 .font(.headline)
                 .foregroundStyle(.primary)
-            Text("重要资料应能随时备份和导出。完整备份是未加密的 ZIP，包含聊天、附件、任务草稿、结构化记录，以及 USER.md、SOUL.md 等工作区 Markdown 文件；可由你选择交给其他 AI 读取。手动导出会单独保留，不受定时备份清理影响。API 密钥、模型端点设置、iSH 系统目录和浏览器会话不会导出。")
+            Text("重要资料应能随时备份和导出。完整备份是未加密的 ZIP，包含聊天、附件、任务草稿、结构化记录，以及 USER.md、SOUL.md 等工作区 Markdown 文件；可由你选择交给其他 AI 读取。手动导出会单独保留，不受定时备份清理影响。API 密钥、模型端点设置、iSH 系统目录、浏览器会话和本机闹钟/计时器不会导出。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -97,7 +97,16 @@ public struct WorkspaceBackupPanel: View {
                 guard let url = try result.get().first else { throw WorkspaceArchiveError.invalidManifest }
                 let hasAccess = url.startAccessingSecurityScopedResource()
                 defer { if hasAccess { url.stopAccessingSecurityScopedResource() } }
-                let selectedData = try Data(contentsOf: url)
+                guard let fileSize = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize else {
+                    throw WorkspaceBackupError.packageSizeUnavailable
+                }
+                guard fileSize >= 0, fileSize <= WorkspaceBackupPackage.maximumPackageBytes else {
+                    throw WorkspaceArchiveError.tooLarge
+                }
+                let selectedData = try Data(contentsOf: url, options: .mappedIfSafe)
+                guard selectedData.count <= WorkspaceBackupPackage.maximumPackageBytes else {
+                    throw WorkspaceArchiveError.tooLarge
+                }
                 let archiveData = try WorkspaceBackupPackage.workspaceArchive(fromPackage: selectedData) ?? selectedData
                 let archive = try WorkspaceArchive.decodePackage(archiveData)
                 importData = archiveData

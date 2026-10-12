@@ -363,12 +363,8 @@ private struct ChatHomeView: View {
                                 ), model: model)
                                 .id("live-response")
                             }
-                            ForEach(model.artifacts.filter { $0.conversationID == model.currentConversationID }) { artifact in
-                                Button { model.openArtifact(artifact) } label: {
-                                    ArtifactCard(artifact: artifact)
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("artifact-\(artifact.id)")
+                            ForEach(ArtifactPresentationGroup.make(from: model.artifacts.filter { $0.conversationID == model.currentConversationID })) { group in
+                                ChatArtifactGroupCard(group: group, model: model)
                             }
                             if model.isSending && model.liveResponse.isEmpty {
                                 HStack(spacing: 9) {
@@ -1023,6 +1019,7 @@ private struct LibraryHomeView: View {
 
 private struct ArtifactCard: View {
     let artifact: ArtifactRecord
+    var subtitleOverride: String? = nil
 
     var body: some View {
         HStack(spacing: 12) {
@@ -1033,7 +1030,7 @@ private struct ArtifactCard: View {
                 .background(OpenMusePalette.selected, in: RoundedRectangle(cornerRadius: 13))
             VStack(alignment: .leading, spacing: 4) {
                 Text(artifact.title).font(.subheadline.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
-                Text("第 \(artifact.currentRevision) 版 · \(artifact.travelProgressLabel)")
+                Text(subtitleOverride ?? "第 \(artifact.currentRevision) 版 · \(artifact.travelProgressLabel)")
                     .font(.caption).foregroundStyle(OpenMusePalette.subtle)
                     .lineLimit(1)
             }
@@ -1043,6 +1040,52 @@ private struct ArtifactCard: View {
         .padding(13)
         .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(OpenMusePalette.border, lineWidth: 1))
+    }
+}
+
+private struct ChatArtifactGroupCard: View {
+    let group: ArtifactPresentationGroup
+    @ObservedObject var model: OpenMuseAppModel
+
+    private var latest: ArtifactRecord { group.latest }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Button { model.openArtifact(latest) } label: {
+                ArtifactCard(
+                    artifact: latest,
+                    subtitleOverride: group.records.count > 1
+                        ? "\(group.records.count) 份同名草稿 · 最新：\(latest.travelProgressLabel)"
+                        : nil
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("artifact-\(latest.id)")
+
+            if group.records.count > 1 {
+                Menu {
+                    ForEach(group.records) { artifact in
+                        Button {
+                            model.openArtifact(artifact)
+                        } label: {
+                            let goalTitle = model.goals.first(where: { $0.id == artifact.goalID })?.title
+                            let source = goalTitle.map { "\($0) · " } ?? ""
+                            Text("\(source)第 \(artifact.currentRevision) 版 · \(artifact.travelProgressLabel)")
+                        }
+                        .accessibilityIdentifier("artifact-choice-\(artifact.id)")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(OpenMusePalette.subtle)
+                        .frame(width: 36, height: 48)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("选择另一份同名草稿")
+                .accessibilityIdentifier("artifact-options-\(latest.id)")
+            }
+        }
+        .accessibilityIdentifier("artifact-group-\(latest.id)")
     }
 }
 

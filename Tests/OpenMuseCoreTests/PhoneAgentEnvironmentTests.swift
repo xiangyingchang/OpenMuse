@@ -254,7 +254,7 @@ final class PhoneAgentEnvironmentTests: XCTestCase {
     }
 
     func testPendingApprovalLocksConversationUntilTheWriteDecisionCompletes() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMusePhoneAgentApprovalConversation-(UUID().uuidString)", isDirectory: true)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMusePhoneAgentApprovalConversation-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let configuration = ModelConfiguration(provider: .custom, endpoint: "https://phone-agent-approval-conversation.example/v1", model: "fixture", supportsToolCalling: true)
         try SecureStore.saveAPIKey("openmuse-phone-agent-approval-conversation-test", for: configuration)
@@ -268,7 +268,7 @@ final class PhoneAgentEnvironmentTests: XCTestCase {
             agentWorkspaceRootOverride: directory.appendingPathComponent("agent-cache", isDirectory: true)
         )
         let originalConversationID = model.currentConversationID
-        model.beginNewConversation()
+        model.beginSideConversation(parentConversationID: originalConversationID)
         let otherConversationID = model.currentConversationID
         model.openConversation(originalConversationID)
 

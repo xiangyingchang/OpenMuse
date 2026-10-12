@@ -84,3 +84,11 @@ OpenMinis 在所查提交中允许通用 iSH shell 直接联网，`curl`、`wget
 - iSH DNS/外网命令、超时取消与崩溃恢复、锁屏后台续跑和蜂窝网络下的跨端连接仍需单独验收；这些不影响本次已验证的共享标签流程。
 - Google 在这次天气查询中不可达并回退 Bing；其他网络下的可达性未测。搜索结果来源回退已验证，天气数值准确性未验证。
 - 旧版基线和 T47/T54 记录仍保留在下文与 [端侧运行时方案](ON_DEVICE_RUNTIME.md)，供追溯演进；当前完成情况以本文顶部的 D41/T62 状态和后续迭代记录为准。
+
+## iPhone 闹钟与计时器（2026-10-12，D44/T81）
+
+固定提交 `b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c` 的 [`AlarmOffload.m`](https://github.com/OpenMinis/OpenMinis/blob/b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c/src/ios/NativeOffloads/AlarmOffload.m) 注册 `apple-alarm`，解析 `set`、`timer`、`list`、`cancel` 并转到 [`AlarmOffloadBridge.swift`](https://github.com/OpenMinis/OpenMinis/blob/b4c0661d5631ebab4d1a2e6f3fd4c805d4030a6c/src/ios/NativeOffloads/AlarmOffloadBridge.swift) 调用 AlarmKit。该桥接支持一次性/每天/工作日闹钟和倒计时；闹钟标签由应用本地保存，因为 AlarmKit 列表数据不回传展示标题。首次调用请求 AlarmKit 授权；该实现要求 iOS 26+。仓库里的摘要文档把 `AlarmOffload` 表格列为 EventKit/提醒事项，但固定提交的直接源代码明确使用 AlarmKit；本次以源代码和 Apple 文档为准。Apple 要求 Info.plist 提供 `NSAlarmKitUsageDescription`，拒绝授权时创建会失败。
+
+OpenMuse 采用相同分层但使用原创命令名 `openmuse-alarm`：iSH guest 解析受限参数，由 iOS 宿主调用 AlarmKit；重复日期、标签和状态可以从列表核对；用户请求“在这台 iPhone 响”的闹钟不转交 Mac。目标进度提醒继续由原有通知机制处理。没有逐命令审批，只出现一次系统授权；iOS 26 以下明确返回不支持，不降级成普通通知。源码实现、测试和真机验收分别记录在 [T81](ITERATIONS.md)。
+
+T82 真机首次调度返回 AlarmKit error 0 后，按用户要求重新核对 OpenMinis 的直接 bridge 源码：普通闹钟只传 `AlarmPresentation.Alert`，不同时声明 Countdown/Paused。OpenMuse 初版给每个闹钟都声明三种状态，而产品没有 AlarmKit widget extension。Apple 官方示例说明 Countdown 与 Paused presentation 可选；仅 Alert 的闹钟不需要它们，支持 countdown presentation 则需要 widget extension，否则系统可能关闭闹钟且不响。OpenMuse 已改为 alert-only，与上游做法一致；计时器的 countdown duration 与显示状态分开。真机重试结果见 [T82](ITERATIONS.md)，不把本次失败归因于权限审批差异。

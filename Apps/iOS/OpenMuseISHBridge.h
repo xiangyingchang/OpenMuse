@@ -14,6 +14,8 @@ typedef void (^OpenMuseISHProgress)(NSData *output);
 /// Synchronously executes one validated browser action in the active
 /// conversation's shared WKWebView tab pool and returns a JSON result.
 typedef NSString * _Nullable (^OpenMuseISHBrowserActionHandler)(NSString *actionJSON);
+/// Runs one validated iPhone system alarm operation and returns a JSON result.
+typedef NSString * _Nullable (^OpenMuseISHAlarmActionHandler)(NSArray<NSString *> *arguments);
 
 @interface OpenMuseISHBridge : NSObject
 
@@ -26,6 +28,7 @@ typedef NSString * _Nullable (^OpenMuseISHBrowserActionHandler)(NSString *action
                timeout:(NSTimeInterval)timeout
      maximumOutputBytes:(NSUInteger)maximumOutputBytes
  browserActionHandler:(nullable OpenMuseISHBrowserActionHandler)browserActionHandler
+    alarmActionHandler:(nullable OpenMuseISHAlarmActionHandler)alarmActionHandler
               progress:(OpenMuseISHProgress)progress
             completion:(OpenMuseISHCompletion)completion;
 

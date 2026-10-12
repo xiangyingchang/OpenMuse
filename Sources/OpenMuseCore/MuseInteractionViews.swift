@@ -19,7 +19,7 @@ struct NavigationDrawerView: View {
 
     private var visibleConversations: [ConversationRecord] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        let available = model.conversations.filter { $0.isArchived != true }
+        let available = model.conversations.filter { $0.isPrimary != true && $0.isArchived != true }
         guard !needle.isEmpty else { return available }
         return available.filter { $0.title.localizedCaseInsensitiveContains(needle) }
     }
@@ -55,6 +55,7 @@ struct NavigationDrawerView: View {
                         }
                         ForEach(WorkspaceSection.allCases) { section in
                             Button {
+                                if section == .chat { model.beginNewConversation() }
                                 model.presentedArtifact = nil
                                 model.selectedSection = section
                                 onClose()
@@ -72,10 +73,10 @@ struct NavigationDrawerView: View {
                                     }
                             }
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier(section.accessibilityIdentifier)
                         }
                     }
 
-                    conversationGroup("主要聊天", values: visibleConversations.filter { $0.isPrimary == true })
                     conversationGroup("旁聊", values: visibleConversations.filter { $0.parentConversationID != nil })
                     let importedConversations = visibleConversations.filter { $0.importedFrom != nil && $0.parentConversationID == nil }
                     if !importedConversations.isEmpty {
@@ -93,15 +94,10 @@ struct NavigationDrawerView: View {
                     .textFieldStyle(.plain)
                     .font(.subheadline)
                     .accessibilityLabel("搜索对话")
-                Menu {
-                    Button("打开主聊", systemImage: "bubble.left") {
-                        model.beginNewConversation()
-                        onClose()
-                    }
-                    Button("新建旁聊", systemImage: "bubble.left.and.bubble.right") {
-                        model.beginSideConversation()
-                        onClose()
-                    }
+                Button {
+                    let primaryID = model.conversations.first(where: { $0.isPrimary == true && $0.isArchived != true })?.id
+                    model.beginSideConversation(parentConversationID: primaryID)
+                    onClose()
                 } label: {
                     Image(systemName: "square.and.pencil")
                         .font(.system(size: 18, weight: .semibold))
@@ -109,7 +105,8 @@ struct NavigationDrawerView: View {
                         .frame(width: 42, height: 42)
                         .background(OpenMusePalette.selected, in: Circle())
                 }
-                .accessibilityLabel("打开主聊或新建旁聊")
+                .accessibilityLabel("新建旁聊")
+                .accessibilityIdentifier("start-side-conversation")
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
@@ -123,7 +120,7 @@ struct NavigationDrawerView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(OpenMusePalette.subtle)
             if values.isEmpty {
-                Text(title == "旁聊" ? "复杂的事情可以开一个旁聊，主聊会留在原处。" : title == "主要聊天" ? "在这里继续和 OpenMuse 聊天。" : "没有符合搜索条件的聊天。")
+                Text(title == "旁聊" ? "你发起的旁聊会显示在这里。" : "没有符合搜索条件的聊天。")
                     .font(.caption).foregroundStyle(OpenMusePalette.subtle.opacity(0.82))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.vertical, 6)
@@ -134,14 +131,14 @@ struct NavigationDrawerView: View {
                         onClose()
                     } label: {
                         HStack(spacing: 9) {
-                            Image(systemName: conversation.isPrimary == true ? "bubble.left" : conversation.parentConversationID == nil ? "bubble.left" : "arrow.turn.down.right")
+                            Image(systemName: conversation.parentConversationID == nil ? "bubble.left" : "arrow.turn.down.right")
                                 .foregroundStyle(OpenMusePalette.subtle)
                                 .frame(width: 21)
-                            Text(conversation.isPrimary == true ? "主聊" : conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
+                            Text(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
                                 .font(.subheadline)
                                 .foregroundStyle(OpenMusePalette.text)
                                 .lineLimit(1)
-                                .accessibilityIdentifier(conversation.isPrimary == true ? "primary-conversation-title" : "conversation-title-\(conversation.id)")
+                                .accessibilityIdentifier("conversation-title-\(conversation.id)")
                             if let importedFrom = conversation.importedFrom {
                                 Text(importedFrom)
                                     .font(.caption2)
@@ -157,6 +154,9 @@ struct NavigationDrawerView: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
+                    .accessibilityIdentifier("conversation-row-\(conversation.id)")
+                    .accessibilityValue(conversation.id == model.currentConversationID ? "当前对话" : "未选中")
                 }
             }
         }

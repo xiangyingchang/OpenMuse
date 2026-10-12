@@ -1,17 +1,36 @@
 # 迭代记录
 
+## T82：2026-10-13 主聊列表、同名成果、回复风格与 AlarmKit 对齐
+
+- 用户提出三个体验问题并补充要求闹钟实现重新对照 OpenMinis。Muse 本机侧栏截图已实际查看：“聊天”在上方选项卡，下面只列旁聊；没有单独“主聊”行。
+- 根因：旧根会话并入持续主聊后，多个同名成果记录仍是独立数据；聊天页逐条展示，造成重复卡片。现在按同类型和标题在聊天页合并呈现，默认打开最新记录，并可从菜单分别打开底层记录；没有删除或覆盖任何成果。
+- 侧栏保留 Muse 的上方“聊天”标签并令其直接打开唯一主聊。下方不再列主聊行，只列旁聊和导入聊天；撰写按钮直接新建以主聊为父级的旁聊。视觉参考 Muse 2026-10-10 侧栏观察和本地归档图，原图不进入公开仓库。
+- 回复风格按用户明确要求调整：简单问题优先直接、简短，不重复背景；分析、计划和高影响事项说明必要依据与步骤，不设置固定字数上限。persona 反馈识别补充“太多废话”和“简洁有用”等表达，仍按现有 SOUL 可撤销流程保存。
+- 闹钟首次真机调度曾返回 AlarmKit error 0。按用户要求再次对照 OpenMinis 固定提交：其 bridge 的普通闹钟使用 Alert-only，不提供 Countdown/Paused；OpenMuse 没有 widget extension，故普通闹钟改成 Alert-only，计时器仍提供 countdown duration。Apple 官方 AlarmKit 示例也将 Countdown/Paused 设为可选；没有复制上游代码。新构建真机通过四条创建/查询/取消闭环：HH:mm 一次性、带时区 ISO8601 一次性、工作日重复、1 小时计时器；每次 set 与 list 的 ID、名称及适用的时间/状态相符，按 ID 取消后 list 均为空。旧版 error 0 与新构建成功之间尚不能证明唯一因果；本轮没有等到响铃，以免夜间打扰，实际响铃仍待合适时段验证。
+- 自动化验证：定向 Core 测试 12/12、完整 Core 测试 267 项中 2 项条件跳过且 0 失败；主聊侧栏模拟器 UI 用例 1/1 通过。iOS ARM64 Release Archive 与 IPA 导出、`codesign --verify --deep --strict` 通过；安装后确认 iPhone 上显示 `0.1.3 (11)`。真机侧栏显示顶部“聊天”入口、下方只有“旁聊”说明；点击顶部“聊天”返回原主聊成功。真机四类闹钟/计时器创建、列表核对、按 ID 取消及清空列表均通过；实际系统响铃没有测试。
+- 交付：本地签名 IPA 为 `.build/OpenMuse-T82-iOS-Release/export/OpenMuse.ipa`，SHA-256 `d76aad0856c84815c775839a400abcc0be5416888075f4bfd72d4ab301f31aad`；公开源码 Release 待 commit/push 后创建。构建与 UI 日志位于 `.build/logs/openmuse-t82-ios-release-archive.log`、`.build/logs/openmuse-t82-ios-release-export.log`、`.build/logs/openmuse-t82-sidebar-ui-test.log`。
+
+## T81：2026-10-12 iPhone 闹钟能力与备份包审计
+
+- 需求与依据：用户报告 OpenMinis 可设置闹钟、OpenMuse 不可用；对照固定源码 `OpenMinis b4c0661d5631ebab1d4a2e6f3fd4c805d4030a6c`，iSH `apple-alarm` 通过原生 offload 调用 AlarmKit。新增 OpenMuse 的 `openmuse-alarm` 命令桥，支持单次/重复闹钟、计时器、列表与取消；需 iOS 26+ 和系统 AlarmKit 授权，Mac 离线时由手机本地执行。另按上游 fail-closed 检查运行时 AlarmKit 是否真的存在，避免兼容运行环境误报 iOS 26+ 后进入不可加载框架。OpenMinis 源码只作行为参考，未复制上游代码。
+- 备份代码审计：外层 ZIP 导入过去先把目录条目物化为数组，再限制条目数；改为有界遍历并拒绝超量、重复或非文件条目。文件选择后先检查大小，拒绝超出格式上限或无法确认大小的文件，再映射读取。手动备份说明现在明确本机 AlarmKit 闹钟/计时器不在共享工作区备份内。
+- 本机备份核验未发现格式结构问题；个人归档、聊天内容、路径、规模和摘要不写入公开项目文档。
+- 代码级剩余边界：通用导入会恢复 `ScheduleRecord`，但不会自动向系统通知中心重新注册本机提醒。系统级提醒恢复策略单独登记，不在备份导入中静默重建。
+- 自动验证：`PhoneAlarmCommandTests` 7/7 与 `WorkspaceBackupTests` 6/6 通过。完整 Core 回归 263 项、2 项因缺少 Pi 集成端点跳过、0 失败；其中一个旧会话切换测试改为创建真实旁聊，以匹配持续主聊语义。iOS Simulator Debug 与 Mac Debug 构建通过。Release ARM64 Archive 和 Personal Team IPA 导出成功，版本 `0.1.1 (9)`；完整归档与签名校验通过。首次归档因脚本找不到本机 LLD 失败，已使用项目缓存中的 LLD 重试。日志：`.build/logs/openmuse-t81-core-tests-final.log`、`.build/logs/openmuse-t81-phone-approval-current-contract.log`、`.build/logs/openmuse-alarm-command-tests.log`、`.build/logs/openmuse-backup-audit-tests.log`、`.build/logs/openmuse-t81-ios-simulator-build.log`、`.build/logs/openmuse-t81-macos-build.log`、`.build/logs/openmuse-t81-ios-archive-final.log`、`.build/logs/openmuse-t81-ios-release-export.log`。
+- 真机与交付：当时已完成安装和命令行启动，但真实 UI、模型工具调用和设备闹钟尚未验收；安装/启动不等于功能验收。该闹钟验收已在 T82 以新构建补做。
+
 ## T79：2026-10-12 聊天回复状态、流式文本与透明顶部
 
 - 需求：用户指出回复期间头像缺少 Muse 式任务反馈、文字要等模型全部结束才出现、顶部背景挡住对话，并要求核对当前行为后再实现。
 - 现状与根因：工具调用默认路径固定请求 `stream: false`，所以即使 API 支持 SSE，手机也只能显示完整答案。Mac 的 Pi RPC 和 iPhone 配对协议也只把完整回复返回手机。头像环没有可见的持续动效；活动阶段只更新在工具操作详情里，聊天顶部没有显示。聊天顶部单独占布局高度且有不透明背景，消息不能滚到其后方。
 - 变更：OpenAI-compatible 工具调用请求按模型能力开启 SSE，解析文本和分片函数参数，按序显示普通回复及工具调用后的回答；若用户明确要求 iSH/浏览器而模型只给普通文字，先暂存文本，确认真实工具调用后才展示，避免失败时误把文字当执行结果。Mac Pi 读取 RPC `message_update.assistantMessageEvent.text_delta`，经配对设备认证的活动轮询通道回传 iPhone；旧协议仍可解码，关闭流式的模型继续走原非流式分支。聊天顶栏改为透明浮层，圆形操作和可点击名称胶囊保留半透明材质，任务阶段是无底色文字；头像在发送时轻柔脉动并尊重系统“减少动态效果”，阶段文案取自真实 ActivityRecord。
-- 验证：测试专用内存 Keychain 下 `swift test` 执行252项，2项因实时环境条件跳过、0失败。定向 Core 用例覆盖 SSE 工具参数分片、回复与工具事件顺序、Pi 增量、认证桥接增量、强制工具失败时不显示普通文字，均通过。Mac Debug 构建通过；iOS Simulator 的聊天首屏 UI 截图用例 1/1 通过，已查看合成截图；iPhone ARM64 签名 Debug 构建通过。日志：`.build/logs/t79-full-core-final.log`、`.build/logs/t79-mac-build-final.log`、`.build/logs/t79-ios-header-transparent-ui-test.log`、`.build/logs/t79-ios-device-signed-build.log`。UI 结果包 `.build/OpenMuseT79TransparentHeader.xcresult`，截图 `.build/t79-transparent-ui-attachments/`。签名产物 `.build/OpenMuse-T79-iphone-signed.app` 为 `org.openmuse.ios`、`0.1.0 (7)`、arm64；`codesign --verify --deep --strict` 通过。Personal Team profile 包含 iPhone 16 Pro UDID，profile 到期时间为 2026-10-18 04:01:28 UTC。
-- 未验收：安装命令执行时 `devicectl` 将 iPhone 16 Pro 与 iPhone 15 Pro Max 均报告为 unavailable，并以错误 1011 结束；Build 7 尚未安装到手机。本轮没有真机视觉/动效验收、真实模型首字延迟测试或已配对 iPhone→Mac 在线回合。模拟器截图用例证明首屏布局可渲染，不证明发送中的动画、阶段切换或模型流式体验已在真机通过。其余一期需求按 [PHASE1_PARITY](PHASE1_PARITY.md) 继续跟踪。
+- 验证：测试专用内存 Keychain 下 `swift test` 执行252项，2项因实时环境条件跳过、0失败。定向 Core 用例覆盖 SSE 工具参数分片、回复与工具事件顺序、Pi 增量、认证桥接增量、强制工具失败时不显示普通文字，均通过。Mac Debug 构建通过；iOS Simulator 的聊天首屏 UI 截图用例 1/1 通过，已查看合成截图；iOS ARM64 签名 Debug 构建通过。结果日志仅留在本机忽略目录 `.build/`。
+- 未验收：该轮没有真机视觉/动效验收、真实模型首字延迟测试或已配对 iPhone→Mac 在线回合。模拟器截图用例证明首屏布局可渲染，不证明发送中的动画、阶段切换或模型流式体验已在真机通过。其余一期需求按 [PHASE1_PARITY](PHASE1_PARITY.md) 继续跟踪。
 
-## T78：2026-10-12 安装当前版本到 iPhone 16 Pro
+## T78：2026-10-12 安装当前版本到 iPhone
 
 - 构建：将 iOS 构建号从5递增到6，Mac 版本号保持5。当前源码以 Personal Team 自动签名构建为 `0.1.0 (6)`；使用仓库忽略目录中的 LLD 构建 iSH，没有修改全局工具链。
-- 安装与启动：iPhone 16 Pro / iOS 27.2 连接成功；`devicectl` 安装 `org.openmuse.ios`、启动应用，并从设备应用清单确认版本 `0.1.0 (6)`。`codesign --verify --deep --strict` 通过。
+- 安装与启动：`devicectl` 安装 `org.openmuse.ios`、启动应用，并从设备应用清单确认版本 `0.1.0 (6)`。`codesign --verify --deep --strict` 通过。
 - 证据：`.build/logs/openmuse-t78-iphone16-signed-build.log`、`.build/logs/openmuse-t78-iphone16-install-verify.log`。
 - 边界：完成构建、签名、安装和命令行启动验收；本轮未做 PUA 视觉页面验收、模型请求或核心流程重测。测试与构建证据见 [T77](ITERATIONS.md#t77)，T76 的完整模拟器 UI 回归仍是17/17。
 

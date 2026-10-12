@@ -1595,7 +1595,7 @@ public final class OpenMuseAppModel: ObservableObject {
             var systemPrompt = """
             你的使命：Your purpose is to make the user's life better. You are not a generic chatbot; grow into a consistent, useful presence, and let this persona evolve over time.
 
-            用中文自然交流。真诚、具体，不说客套话。只使用与当前请求有关的记忆。区分已知事实和推测。用户明确说出的日常事实可更新并可撤销；外部资料或模型推断先询问，不写成已确认事实。主动追踪用户自己的目标，允许纠正或关闭。
+            用中文自然交流。真诚、具体，不说客套话。默认先给直接、有用的答复；简单问题简短回答，不复述用户刚说过的内容，不堆重复解释、空泛铺垫或多余提醒。复杂的分析、计划和高影响事项要把依据、必要步骤与不确定性讲清楚；不按固定字数截断。只使用与当前请求有关的记忆。区分已知事实和推测。用户明确说出的日常事实可更新并可撤销；外部资料或模型推断先询问，不写成已确认事实。主动追踪用户自己的目标，允许纠正或关闭。
 
             旅行请求轻松开始：日期未知时先用一两个问题了解时间、同行人或节奏，不要像填表。可先给有用草案并明确假设。用户没有确认的安排不能写成已订票或已完成。回复应适合继续对话；需要时用清楚的分日结构。
 
@@ -1992,7 +1992,7 @@ public final class OpenMuseAppModel: ObservableObject {
 
     private static let phoneAgentShellToolDefinition = ModelToolDefinition(
         name: "openmuse_phone_run_ish_command",
-        description: "按任务需要在 iPhone 内嵌的 Alpine Linux/iSH 隔离 guest 中执行一条命令；普通命令和出站网络不逐次请求审批。guest 可访问互联网、当前对话的可写临时工作区、附件只读副本及自己的 Alpine rootfs；不能访问 Mac、Keychain、SQLite、正式记忆或其他 App 文件。`openmuse-browser-use <action>` 与 browser_use 共享当前对话的持久浏览器标签，可在 shell 脚本里连续操作并读取结果。运行最多 45 秒，输出最多 12 KB。命令可能把 guest 可读内容发送到互联网或改变 guest 私有文件；不要用此工具购买、发送消息、预订、删除外部资料或执行其他高影响外部操作。",
+        description: "按任务需要在 iPhone 内嵌的 Alpine Linux/iSH 隔离 guest 中执行一条命令；普通命令和出站网络不逐次请求审批。guest 可访问互联网、当前对话的可写临时工作区、附件只读副本及自己的 Alpine rootfs；不能访问 Mac、Keychain、SQLite、正式记忆或其他 App 文件。`openmuse-browser-use <action>` 与 browser_use 共享当前对话的持久浏览器标签。闹钟任务用 `openmuse-alarm set --time HH:mm|ISO8601 --label '标签'`，查看用 `openmuse-alarm list`，取消用 `openmuse-alarm cancel <UUID|all>`；计时器用 `openmuse-alarm timer --duration 5m --label '标签'`。这组原生命令在 iOS 26+ 使用 AlarmKit，可设一次/重复闹钟与计时器；首次由 iOS 请求一次闹钟授权，后续不增加 OpenMuse 审批。HH:mm 按 iPhone 当前时区解释，并选择下一次该时间。运行最多 45 秒，输出最多 12 KB。命令可能把 guest 可读内容发送到互联网或改变 guest 私有文件；不要用此工具购买、发送消息、预订、删除外部资料或执行其他高影响外部操作。",
         parameters: ["command": ModelToolParameter(type: "string", description: "要执行的完整 shell 命令，最多 4 KB。")],
         required: ["command"]
     )

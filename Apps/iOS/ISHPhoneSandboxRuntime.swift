@@ -121,6 +121,20 @@ actor ISHPhoneSandboxRuntime: PhoneSandboxCommandRuntime {
         } else {
             browserActionHandler = nil
         }
+        let alarmActionHandler: OpenMuseISHAlarmActionHandler = { arguments in
+            let responseBox = BrowserBridgeResponseBox()
+            let semaphore = DispatchSemaphore(value: 0)
+            let actionTask = Task { @MainActor in
+                let response = await IOSPhoneAlarmOffload.perform(arguments: arguments)
+                responseBox.set(response)
+                semaphore.signal()
+            }
+            guard semaphore.wait(timeout: .now() + 35) == .success else {
+                actionTask.cancel()
+                return #"{"success":false,"error":"等待 iOS 闹钟授权或系统响应超时；没有确认闹钟已创建。"}"#
+            }
+            return responseBox.get()
+        }
         let (progressStream, progressContinuation) = AsyncStream<Data>.makeStream(bufferingPolicy: .bufferingNewest(1))
         let progressTask = Task {
             for await snapshot in progressStream {
@@ -136,6 +150,7 @@ actor ISHPhoneSandboxRuntime: PhoneSandboxCommandRuntime {
                     timeout: timeout,
                     maximumOutputBytes: UInt(maximumOutputBytes),
                     browserActionHandler: browserActionHandler,
+                    alarmActionHandler: alarmActionHandler,
                     progress: { snapshot in progressContinuation.yield(snapshot) }
                 ) { output, exitCode, timedOut, truncated, error in
                     progressContinuation.finish()

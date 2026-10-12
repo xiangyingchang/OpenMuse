@@ -3,6 +3,7 @@ import ZIPFoundation
 
 public enum WorkspaceBackupError: Error, LocalizedError, Equatable {
     case invalidPackage
+    case packageSizeUnavailable
     case destinationNotSelected
     case destinationUnavailable
 
@@ -10,6 +11,8 @@ public enum WorkspaceBackupError: Error, LocalizedError, Equatable {
         switch self {
         case .invalidPackage:
             return "备份包结构无效或已损坏。"
+        case .packageSizeUnavailable:
+            return "无法确认所选文件的大小，未读取备份。"
         case .destinationNotSelected:
             return "请先选择备份文件夹。"
         case .destinationUnavailable:
@@ -24,7 +27,7 @@ public enum WorkspaceBackupPackage {
     private static let indexPath = "openmuse-backup.json"
     private static let archivePath = "workspace.zip"
     private static let readmePath = "README.md"
-    private static let maximumPackageBytes = WorkspacePortableArchive.maximumCompressedBytes + 8_000_000
+    public static let maximumPackageBytes = WorkspacePortableArchive.maximumCompressedBytes + 8_000_000
     private static let maximumEntryCount = 10_000
 
     public static func make(
@@ -69,9 +72,17 @@ public enum WorkspaceBackupPackage {
             throw WorkspaceBackupError.invalidPackage
         }
         guard let indexEntry = archive[indexPath] else { return nil }
-        let entries = Array(archive)
-        guard entries.count <= maximumEntryCount,
-              indexEntry.type == .file,
+        var entryCount = 0
+        var entryPaths = Set<String>()
+        for entry in archive {
+            guard entryCount < maximumEntryCount,
+                  entry.type == .file,
+                  entryPaths.insert(entry.path).inserted else {
+                throw WorkspaceBackupError.invalidPackage
+            }
+            entryCount += 1
+        }
+        guard indexEntry.type == .file,
               indexEntry.uncompressedSize <= 1_000_000 else {
             throw WorkspaceBackupError.invalidPackage
         }
@@ -124,7 +135,7 @@ public enum WorkspaceBackupPackage {
 
         `memory/` 下的 Markdown 是便于阅读的工作区文件副本。完整结构化数据、修订历史、附件和校验清单位于 `workspace.zip` 中；记录以 JSONL 保存，可按其中的 `kind`、`recordID` 和 `payload` 字段读取。将备份交给其他 AI 前，请先检查其中的个人资料，并只分享你允许读取的内容。
 
-        API 密钥、邮箱凭证、模型端点偏好、备份计划/位置、iSH 系统/运行时目录和浏览器 Cookie/缓存不会导出；请在新设备重新配置凭证和备份计划。
+        API 密钥、邮箱凭证、模型端点偏好、备份计划/位置、iSH 系统/运行时目录、浏览器 Cookie/缓存，以及本机 AlarmKit 闹钟和计时器不会导出；请在新设备重新配置凭证和备份计划。
 
         ## Markdown 文件
 

@@ -21,10 +21,21 @@ final class WorkspaceBackupTests: XCTestCase {
         XCTAssertTrue(readme.contains("workspace.zip"))
         XCTAssertTrue(readme.contains("USER.md"))
         XCTAssertTrue(readme.contains("聊天记录、活动和任务草稿已包含"))
+        XCTAssertTrue(readme.contains("本机 AlarmKit 闹钟和计时器不会导出"))
     }
 
     func testBackupPackageRejectsInvalidWorkspaceArchive() throws {
         XCTAssertThrowsError(try WorkspaceBackupPackage.make(workspaceArchive: Data("invalid".utf8), documents: []))
+    }
+
+    func testBackupPackageRejectsTooManyEntriesBeforeMaterializingEntryList() throws {
+        let archive = try Archive(data: Data(), accessMode: .create, pathEncoding: nil)
+        try archive.addEntry(with: "openmuse-backup.json", type: .file, uncompressedSize: Int64(0), compressionMethod: .deflate) { _, _ in Data() }
+        for index in 0...10_000 {
+            try archive.addEntry(with: "extra-\(index)", type: .file, uncompressedSize: Int64(0), compressionMethod: .deflate) { _, _ in Data() }
+        }
+        let package = try XCTUnwrap(archive.data)
+        XCTAssertThrowsError(try WorkspaceBackupPackage.workspaceArchive(fromPackage: package))
     }
 
     func testDailyScheduleCalculatesNextOccurrenceAndDueState() throws {

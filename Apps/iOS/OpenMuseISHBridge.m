@@ -16,9 +16,10 @@
                timeout:(NSTimeInterval)timeout
      maximumOutputBytes:(NSUInteger)maximumOutputBytes
  browserActionHandler:(OpenMuseISHBrowserActionHandler)browserActionHandler
+    alarmActionHandler:(OpenMuseISHAlarmActionHandler)alarmActionHandler
               progress:(OpenMuseISHProgress)progress
             completion:(OpenMuseISHCompletion)completion {
-    (void)command; (void)rootfsPath; (void)mounts; (void)timeout; (void)maximumOutputBytes; (void)browserActionHandler; (void)progress;
+    (void)command; (void)rootfsPath; (void)mounts; (void)timeout; (void)maximumOutputBytes; (void)browserActionHandler; (void)alarmActionHandler; (void)progress;
     completion([NSData data], 0, NO, NO,
                [NSError errorWithDomain:@"OpenMuseISH" code:4
                                userInfo:@{NSLocalizedDescriptionKey: @"iSH 目前只包含在 iPhone 真机版本中。"}]);
@@ -106,6 +107,9 @@ static bool OpenMuseISHOutputTruncated = false;
 static pthread_mutex_t OpenMuseISHBrowserHandlerLock = PTHREAD_MUTEX_INITIALIZER;
 static OpenMuseISHBrowserActionHandler OpenMuseISHBrowserHandler = nil;
 static bool OpenMuseISHBrowserOffloadRegistered = false;
+static pthread_mutex_t OpenMuseISHAlarmHandlerLock = PTHREAD_MUTEX_INITIALIZER;
+static OpenMuseISHAlarmActionHandler OpenMuseISHAlarmHandler = nil;
+static bool OpenMuseISHAlarmOffloadRegistered = false;
 
 static struct tty *OpenMuseISHConsoleTTYs[8];
 
@@ -414,6 +418,19 @@ static OpenMuseISHBrowserActionHandler OpenMuseISHCopyBrowserActionHandler(void)
     return handler;
 }
 
+static void OpenMuseISHSetAlarmActionHandler(OpenMuseISHAlarmActionHandler handler) {
+    pthread_mutex_lock(&OpenMuseISHAlarmHandlerLock);
+    OpenMuseISHAlarmHandler = [handler copy];
+    pthread_mutex_unlock(&OpenMuseISHAlarmHandlerLock);
+}
+
+static OpenMuseISHAlarmActionHandler OpenMuseISHCopyAlarmActionHandler(void) {
+    pthread_mutex_lock(&OpenMuseISHAlarmHandlerLock);
+    OpenMuseISHAlarmActionHandler handler = [OpenMuseISHAlarmHandler copy];
+    pthread_mutex_unlock(&OpenMuseISHAlarmHandlerLock);
+    return handler;
+}
+
 static void OpenMuseISHWriteBrowserJSON(int fd, NSDictionary *payload) {
     NSData *data = [NSJSONSerialization dataWithJSONObject:payload options:NSJSONWritingSortedKeys error:nil];
     if (data == nil) return;
@@ -535,6 +552,55 @@ static int OpenMuseISHBrowserUseMain(int argc, char **argv, int stdinFD, int std
     NSData *resultData = [rawResult dataUsingEncoding:NSUTF8StringEncoding];
     if (resultData == nil || resultData.length == 0 || resultData.length > 12 * 1024) {
         OpenMuseISHWriteBrowserJSON(stdoutFD, @{@"success": @NO, @"error": @"Browser bridge returned no valid bounded result."});
+        return 1;
+    }
+    const uint8_t *bytes = resultData.bytes;
+    size_t remaining = resultData.length;
+    while (remaining > 0) {
+        ssize_t written = write(stdoutFD, bytes, remaining);
+        if (written < 0 && errno == EINTR) continue;
+        if (written <= 0) break;
+        bytes += written;
+        remaining -= (size_t)written;
+    }
+    (void)write(stdoutFD, "\n", 1);
+    NSDictionary *result = [NSJSONSerialization JSONObjectWithData:resultData options:NSJSONReadingFragmentsAllowed error:nil];
+    return [result isKindOfClass:NSDictionary.class] && [result[@"success"] boolValue] ? 0 : 1;
+}
+
+static int OpenMuseISHAlarmMain(int argc, char **argv, int stdinFD, int stdoutFD, int stderrFD) {
+    (void)stdinFD;
+    (void)stderrFD;
+    static NSString *const help =
+        @"openmuse-alarm set --time HH:mm|ISO8601 --label 'label' [--repeat daily|weekdays|weekends]\n"
+         "openmuse-alarm timer --duration 300|5m|1h30m --label 'label'\n"
+         "openmuse-alarm list\n"
+         "openmuse-alarm cancel <UUID|all>\n"
+         "Uses iOS AlarmKit on iOS 26+; times without an offset use the device time zone.\n";
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        NSData *data = [help dataUsingEncoding:NSUTF8StringEncoding];
+        if (data.length > 0) (void)write(stdoutFD, data.bytes, data.length);
+        return 0;
+    }
+
+    NSMutableArray<NSString *> *arguments = [NSMutableArray new];
+    for (int index = 1; index < argc; index++) {
+        NSString *argument = [NSString stringWithUTF8String:argv[index]];
+        if (argument == nil) {
+            OpenMuseISHWriteBrowserJSON(stdoutFD, @{@"success": @NO, @"error": @"命令包含无效 UTF-8。"});
+            return 2;
+        }
+        [arguments addObject:argument];
+    }
+    OpenMuseISHAlarmActionHandler handler = OpenMuseISHCopyAlarmActionHandler();
+    if (handler == nil) {
+        OpenMuseISHWriteBrowserJSON(stdoutFD, @{@"success": @NO, @"error": @"iPhone 闹钟桥接当前不可用。"});
+        return 1;
+    }
+    NSString *resultText = handler(arguments);
+    NSData *resultData = [resultText dataUsingEncoding:NSUTF8StringEncoding];
+    if (resultData.length == 0 || resultData.length > 12 * 1024) {
+        OpenMuseISHWriteBrowserJSON(stdoutFD, @{@"success": @NO, @"error": @"闹钟桥接没有返回有效结果。"});
         return 1;
     }
     const uint8_t *bytes = resultData.bytes;
@@ -692,6 +758,15 @@ static int OpenMuseISHBoot(NSString *rootfsPath) {
         }
         OpenMuseISHBrowserOffloadRegistered = true;
     }
+    error = OpenMuseISHEnsureGuestStub("/usr/local/bin/openmuse-alarm");
+    if (error < 0) { current = NULL; return error; }
+    if (!OpenMuseISHAlarmOffloadRegistered) {
+        if (native_offload_add_handler("openmuse-alarm", OpenMuseISHAlarmMain) < 0) {
+            current = NULL;
+            return _EIO;
+        }
+        OpenMuseISHAlarmOffloadRegistered = true;
+    }
 
     // iSH maps guest AF_UNIX sockets to host files; keep those files inside
     // the app's temporary container directory instead of the host /tmp.
@@ -830,6 +905,7 @@ static void OpenMuseISHUnmount(NSArray<NSDictionary<NSString *, id> *> *mounts) 
                timeout:(NSTimeInterval)timeout
      maximumOutputBytes:(NSUInteger)maximumOutputBytes
  browserActionHandler:(OpenMuseISHBrowserActionHandler)browserActionHandler
+    alarmActionHandler:(OpenMuseISHAlarmActionHandler)alarmActionHandler
               progress:(OpenMuseISHProgress)progress
             completion:(OpenMuseISHCompletion)completion {
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
@@ -849,6 +925,7 @@ static void OpenMuseISHUnmount(NSArray<NSDictionary<NSString *, id> *> *mounts) 
         OpenMuseISHDrainEvents();
         OpenMuseISHResetOutput(maximumOutputBytes);
         OpenMuseISHSetBrowserActionHandler(browserActionHandler);
+        OpenMuseISHSetAlarmActionHandler(alarmActionHandler);
         __block int pid = -1;
         __block int startError = 0;
         dispatch_sync(OpenMuseISHKernelQueue(), ^{
@@ -856,6 +933,7 @@ static void OpenMuseISHUnmount(NSArray<NSDictionary<NSString *, id> *> *mounts) 
         });
         if (startError < 0) {
             OpenMuseISHSetBrowserActionHandler(nil);
+            OpenMuseISHSetAlarmActionHandler(nil);
             dispatch_sync(OpenMuseISHKernelQueue(), ^{ OpenMuseISHUnmount(mounts); });
             completion([NSData data], 0, NO, NO,
                        [NSError errorWithDomain:@"OpenMuseISH" code:startError userInfo:@{NSLocalizedDescriptionKey: [NSString stringWithFormat:@"iSH 无法启动命令（%d）。", startError]}]);
@@ -897,6 +975,7 @@ static void OpenMuseISHUnmount(NSArray<NSDictionary<NSString *, id> *> *mounts) 
         }
 
         OpenMuseISHSetBrowserActionHandler(nil);
+        OpenMuseISHSetAlarmActionHandler(nil);
 
         BOOL guestCrashed = event.type == OpenMuseISHCrashed || atomic_load(&OpenMuseISHRuntimePoisoned);
         BOOL guestDidNotStop = timedOut && !received;

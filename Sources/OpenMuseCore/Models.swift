@@ -1354,6 +1354,16 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
 
     public var id: String { rawValue }
 
+    public var accessibilityIdentifier: String {
+        switch self {
+        case .chat: "open-primary-chat"
+        case .feed: "open-feed"
+        case .ideas: "open-ideas"
+        case .goals: "open-goals"
+        case .library: "open-library"
+        }
+    }
+
     public var symbol: String {
         switch self {
         case .chat: "bubble.left"

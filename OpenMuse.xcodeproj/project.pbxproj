@@ -10,10 +10,11 @@
 		11B55FDB2D996F57EB1CF284 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8F15976BCE1D55BD0C8AC200 /* Assets.xcassets */; };
 		13530D6359600D4C8E6A0DBB /* OpenMuseNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D78D15EB8F57C077E0307B9 /* OpenMuseNavigationUITests.swift */; };
 		14246FB90B62430C13850301 /* OpenMuseISHBridge.m in Sources */ = {isa = PBXBuildFile; fileRef = 39C2A3C51F31E47CD3252F88 /* OpenMuseISHBridge.m */; };
+		1C28902DBA9F50DD94CBEDBF /* IOSPhoneAlarmOffload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 821E7AF02EDF93678813C0C8 /* IOSPhoneAlarmOffload.swift */; };
 		32F21C5BC0DA308542B6513A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FC235AE44FB4E9194DEDF64A /* Assets.xcassets */; };
 		4194D20BBDE137369A3D1759 /* OpenMuseMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFBD7233714D20A5058723E /* OpenMuseMacApp.swift */; };
 		7648DD83D6FB159BCDCE9483 /* ISHPhoneSandboxRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = E82AD0FCF0C7A8F4770996DC /* ISHPhoneSandboxRuntime.swift */; };
-		F4E152A18C5D40C9A0C6B788 /* IOSPhoneBrowserRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4E152A18C5D40C9A0C6B789 /* IOSPhoneBrowserRuntime.swift */; };
+		A76BFA01D835B071667C59B6 /* IOSPhoneBrowserRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAC0C688F2F48C7028B2155D /* IOSPhoneBrowserRuntime.swift */; };
 		BA437A91E64C360CE8DD0542 /* OpenMuseIOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C17623E9AF8E4B9F3B30BD03 /* OpenMuseIOSApp.swift */; };
 		BABBB427A854694FBF03F8B5 /* OpenMuseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 319179351E9C557AB0AE2A72 /* OpenMuseCore */; };
 		D2C9175D34AEC934FD631EA1 /* OpenMuseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1FDAC2C64C53E56CE4493006 /* OpenMuseCore */; };
@@ -34,6 +35,7 @@
 		63F86048FD168F4F08F7A399 /* OpenMuse-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "OpenMuse-Bridging-Header.h"; sourceTree = "<group>"; };
 		6BD93C78190760C0F0DBEC4D /* OpenMuseISHBridge.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = OpenMuseISHBridge.h; sourceTree = "<group>"; };
 		7D78D15EB8F57C077E0307B9 /* OpenMuseNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMuseNavigationUITests.swift; sourceTree = "<group>"; };
+		821E7AF02EDF93678813C0C8 /* IOSPhoneAlarmOffload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSPhoneAlarmOffload.swift; sourceTree = "<group>"; };
 		8CD7C5595A6E892F3DA55DDC /* OpenMuseiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenMuseiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8F15976BCE1D55BD0C8AC200 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A3C4730381D97DC489E4D7DB /* OpenMuseMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenMuseMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -42,7 +44,7 @@
 		C17623E9AF8E4B9F3B30BD03 /* OpenMuseIOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenMuseIOSApp.swift; sourceTree = "<group>"; };
 		D8612BF966DAC9F1A9C67D55 /* OpenMuseiOSUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = OpenMuseiOSUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E82AD0FCF0C7A8F4770996DC /* ISHPhoneSandboxRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISHPhoneSandboxRuntime.swift; sourceTree = "<group>"; };
-		F4E152A18C5D40C9A0C6B789 /* IOSPhoneBrowserRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSPhoneBrowserRuntime.swift; sourceTree = "<group>"; };
+		EAC0C688F2F48C7028B2155D /* IOSPhoneBrowserRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSPhoneBrowserRuntime.swift; sourceTree = "<group>"; };
 		FC235AE44FB4E9194DEDF64A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -124,8 +126,9 @@
 			isa = PBXGroup;
 			children = (
 				8F15976BCE1D55BD0C8AC200 /* Assets.xcassets */,
+				821E7AF02EDF93678813C0C8 /* IOSPhoneAlarmOffload.swift */,
+				EAC0C688F2F48C7028B2155D /* IOSPhoneBrowserRuntime.swift */,
 				E82AD0FCF0C7A8F4770996DC /* ISHPhoneSandboxRuntime.swift */,
-				F4E152A18C5D40C9A0C6B789 /* IOSPhoneBrowserRuntime.swift */,
 				63F86048FD168F4F08F7A399 /* OpenMuse-Bridging-Header.h */,
 				C17623E9AF8E4B9F3B30BD03 /* OpenMuseIOSApp.swift */,
 				6BD93C78190760C0F0DBEC4D /* OpenMuseISHBridge.h */,
@@ -339,8 +342,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1C28902DBA9F50DD94CBEDBF /* IOSPhoneAlarmOffload.swift in Sources */,
+				A76BFA01D835B071667C59B6 /* IOSPhoneBrowserRuntime.swift in Sources */,
 				7648DD83D6FB159BCDCE9483 /* ISHPhoneSandboxRuntime.swift in Sources */,
-				F4E152A18C5D40C9A0C6B788 /* IOSPhoneBrowserRuntime.swift in Sources */,
 				BA437A91E64C360CE8DD0542 /* OpenMuseIOSApp.swift in Sources */,
 				14246FB90B62430C13850301 /* OpenMuseISHBridge.m in Sources */,
 			);
@@ -371,7 +375,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 11;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
@@ -392,7 +396,7 @@
 					"$(inherited)",
 					"$(SRCROOT)/.build/OpenMuse-iSH/lib",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.3;
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
 					"-lish",
@@ -622,7 +626,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 11;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
@@ -643,7 +647,7 @@
 					"$(inherited)",
 					"$(SRCROOT)/.build/OpenMuse-iSH/lib",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.3;
 				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
 					"-lish",

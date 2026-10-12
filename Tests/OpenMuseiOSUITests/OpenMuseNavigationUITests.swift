@@ -58,7 +58,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 3))
     }
 
-    func testSidebarKeepsOnePrimaryChatAndCreatesIndependentSideChat() {
+    func testMainChatIsThePrimaryTabAndOnlySideChatsAppearBelowIt() {
         app.terminate()
         app = XCUIApplication()
         app.launchArguments = ["-openmuse-ui-test-workspace", UUID().uuidString]
@@ -66,19 +66,20 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
 
         app.buttons["打开侧栏"].tap()
-        XCTAssertTrue(app.staticTexts["主要聊天"].waitForExistence(timeout: 3))
-        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 1)
+        XCTAssertTrue(app.buttons["open-primary-chat"].waitForExistence(timeout: 3))
+        XCTAssertEqual(app.buttons["open-primary-chat"].label, "聊天")
+        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 0)
 
-        app.buttons["打开主聊或新建旁聊"].tap()
-        app.buttons["新建旁聊"].tap()
+        app.buttons["start-side-conversation"].tap()
         app.buttons["打开侧栏"].tap()
-        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 1)
-        XCTAssertTrue(app.staticTexts["新旁聊"].exists)
+        let sideChat = app.buttons["新旁聊"]
+        XCTAssertTrue(sideChat.waitForExistence(timeout: 3))
+        XCTAssertEqual(sideChat.value as? String, "当前对话")
 
-        app.buttons["打开主聊或新建旁聊"].tap()
-        app.buttons["打开主聊"].tap()
+        app.buttons["open-primary-chat"].tap()
         app.buttons["打开侧栏"].tap()
-        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 1)
+        XCTAssertEqual(app.buttons["新旁聊"].value as? String, "未选中")
+        XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 0)
     }
 
     func testDreamingPlanControlsStayReadableWhenEnabled() {

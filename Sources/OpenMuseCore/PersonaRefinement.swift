@@ -32,7 +32,7 @@ public enum PersonaRefinement {
             )
         }
 
-        if ["太啰嗦", "太冗长", "回复太长", "回答太长", "说得太长"].contains(where: lower.contains) {
+        if ["太啰嗦", "太冗长", "回复太长", "回答太长", "说得太长", "太多废话", "不要说太多废话", "不用这么长", "简洁有用"].contains(where: lower.contains) {
             return PersonaRefinementCandidate(
                 habit: "先给简洁、可用的答复；只有任务需要时再展开细节。",
                 reason: "你反馈回复需要更简洁。"
