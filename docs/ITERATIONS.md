@@ -8,7 +8,7 @@
 - 回复风格按用户明确要求调整：简单问题优先直接、简短，不重复背景；分析、计划和高影响事项说明必要依据与步骤，不设置固定字数上限。persona 反馈识别补充“太多废话”和“简洁有用”等表达，仍按现有 SOUL 可撤销流程保存。
 - 闹钟首次真机调度曾返回 AlarmKit error 0。按用户要求再次对照 OpenMinis 固定提交：其 bridge 的普通闹钟使用 Alert-only，不提供 Countdown/Paused；OpenMuse 没有 widget extension，故普通闹钟改成 Alert-only，计时器仍提供 countdown duration。Apple 官方 AlarmKit 示例也将 Countdown/Paused 设为可选；没有复制上游代码。新构建真机通过四条创建/查询/取消闭环：HH:mm 一次性、带时区 ISO8601 一次性、工作日重复、1 小时计时器；每次 set 与 list 的 ID、名称及适用的时间/状态相符，按 ID 取消后 list 均为空。旧版 error 0 与新构建成功之间尚不能证明唯一因果；本轮没有等到响铃，以免夜间打扰，实际响铃仍待合适时段验证。
 - 自动化验证：定向 Core 测试 12/12、完整 Core 测试 267 项中 2 项条件跳过且 0 失败；主聊侧栏模拟器 UI 用例 1/1 通过。iOS ARM64 Release Archive 与 IPA 导出、`codesign --verify --deep --strict` 通过；安装后确认 iPhone 上显示 `0.1.3 (11)`。真机侧栏显示顶部“聊天”入口、下方只有“旁聊”说明；点击顶部“聊天”返回原主聊成功。真机四类闹钟/计时器创建、列表核对、按 ID 取消及清空列表均通过；实际系统响铃没有测试。
-- 交付：本地签名 IPA 为 `.build/OpenMuse-T82-iOS-Release/export/OpenMuse.ipa`，SHA-256 `d76aad0856c84815c775839a400abcc0be5416888075f4bfd72d4ab301f31aad`；公开源码 Release 待 commit/push 后创建。构建与 UI 日志位于 `.build/logs/openmuse-t82-ios-release-archive.log`、`.build/logs/openmuse-t82-ios-release-export.log`、`.build/logs/openmuse-t82-sidebar-ui-test.log`。
+- 交付：本地签名 IPA 为 `.build/OpenMuse-T82-iOS-Release/export/OpenMuse.ipa`，SHA-256 `d76aad0856c84815c775839a400abcc0be5416888075f4bfd72d4ab301f31aad`；公开源码 Release 已发布为 [v0.1.3](https://github.com/xiangyingchang/OpenMuse/releases/tag/v0.1.3)，不附设备专用签名包。构建与 UI 日志位于 `.build/logs/openmuse-t82-ios-release-archive.log`、`.build/logs/openmuse-t82-ios-release-export.log`、`.build/logs/openmuse-t82-sidebar-ui-test.log`。
 
 ## T81：2026-10-12 iPhone 闹钟能力与备份包审计
 
