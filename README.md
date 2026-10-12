@@ -2,9 +2,11 @@
 
 一个持续认识你、陪你把想做的事情一步步做成的开源个人 AI。面向中国用户，正在开发 iOS 与 macOS 客户端，并支持自定义模型。
 
-> 当前状态（2026-10-10）：双端原生工程、本机持久化和首个体验界面已实现。Mac Debug App 已构建并启动，iOS 模拟器 App 已安装并启动；iPhone 真机签名等待在 Xcode 登录 Apple Account。Mac 的 loopback 桥接、一次性配对与独立 Tailscale Serve 路由已实现；本机配对生命周期测试通过。Mac 上 `curl` 可访问 Serve HTTPS，但 OpenMuse 的 `URLSession` 返回 SecureTransport `-9816`（服务端未发送会话关闭通知），客户端差异尚未定位；iPhone 当前离线，因此跨设备能力尚未验收。真实模型凭证、资料同步和 Pi 电脑工具也未完成。详见[迭代记录](docs/ITERATIONS.md)与[双端协议](docs/RUNTIME_PROTOCOL.md)。
+> 当前状态（2026-10-12，本地工作区）：T78 已将当前源码签名安装到 iPhone 16 Pro / iOS 27.2，设备清单确认 `0.1.0 (6)`，`devicectl` 启动成功；本轮未做 PUA 视觉验收或模型请求。T77 修复了凭证异步读取竞态；隔离内存 Keychain 后端下 Core 全量测试251项中249项通过、2项条件跳过、0失败，Mac Bridge 定向测试通过，Mac Debug 与 iOS Simulator Debug 构建成功。T76 的 iPhone 17 Pro / iOS 26.5 完整 UI 套件17项通过（T77 后未重跑）。真实系统 Keychain/模型流程未做端到端验收。Xcode Signing & Capabilities 页面尚未目视检查：当前会话没有桌面应用控制。真实 iPhone→Mac Pi 委派、蜂窝外网、中国境内网络、锁屏后台、真实连接器、14天连续自用和 Muse 逐页视觉对照仍未完成。详见[开工状态与方案入口](docs/STARTUP_REVIEW.md)、[T78 迭代记录](docs/ITERATIONS.md#t78)、[覆盖审计](docs/REQUIREMENT_AUDIT_2026-10-10.md)和[一期对照表](docs/PHASE1_PARITY.md)。
 
 长期目标是让一个人拥有可携带、可纠正、会随生活变化而成长的 AI 陪伴者。产品价值来自真实帮助、连续理解与目标进展。
+
+> 端侧运行：iOS 已集成固定版本的 iSH/Alpine ARM64。用户确认普通 iSH 命令和 guest 出站网络无需逐次审批；guest 可发送其可读资料到互联网。T67 真机 HTTPS GET 返回200，但 DNS 结果为 `198.18.0.45` 保留地址，只能证明当时设备网络路径可用，不能证明公网 DNS 或中国境内直连。Build 4 的真机浏览器操作见 T68；T75 当前源码尚未重装到真机。详见[端侧运行时](docs/ON_DEVICE_RUNTIME.md)和[迭代记录](docs/ITERATIONS.md)。
 
 ## 四个核心体验
 
@@ -17,15 +19,15 @@
 
 一期以 Muse 的交互和运行机制为对齐目标。Mac 在线连接本机 Pi 执行，Mac 离线由 iPhone 接手其支持的任务；首期支持 OpenAI、DeepSeek 和自定义模型 API；不依赖自建云端执行服务器；数据同步优先研究 iCloud。模型 API 可以是用户选择的远程服务，“无云端执行服务器”不代表所有推理都在本地。
 
-当前连接实验只转发模型回合，不会同步消息、记忆、目标或构件，也没有打开 Mac 文件和浏览器工具；Pi 工具保持关闭。不能把模型代理称为电脑执行。Mac 首次启用时会在独立 HTTPS 8443 端口添加 `/openmuse` Serve 路由；若端口已被其他服务占用，会停止并保留原设置。它不修改现有443路由，也不启用 Funnel。
+Mac 配对通道代码可转发 Pi 模型回合并同步结构化工作区记录，含记忆遗忘墓碑；Mac 本机可选定只读资料目录，Pi 通过受限临时快照列出/读取文本文件。单轮任务 owner 交接、工具事件轮询和检查点有 Core/bridge 测试，但真实 iPhone→Mac Pi 委派尚未真机验收。此前 iPhone 与 Mac 配对和首次同步已通过；18项版本冲突仍待用户选择。断线状态确认、长任务续跑、离线分支选择、Mac 浏览器和写文件仍未完成，不能把它描述为完整电脑控制。Mac 首次启用时会在独立 HTTPS 8443 端口添加 `/openmuse` Serve 路由；若端口已被其他服务占用，会停止并保留原设置。它不修改现有443路由，也不启用 Funnel。
 
-iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交互结构参考 Muse。手机后台长期执行仍是待验证边界，不能以同步或保活代码替代真实设备证明。
+iOS 端侧 runtime 参考 OpenMinis 的 iSH/Alpine、tool loop、隔离工作区与原生 offload 分层；原生交互技术参考 Lody iOS，产品交互结构参考 Muse。固定版本的 iSH/Alpine ARM64 已集成；按用户确认，普通命令和 guest 出站网络不增加逐次审批，只能访问当前对话挂载目录和 guest 私有 rootfs。iSH 与 App 共进程，不是强隔离虚拟机。原生 iOS offload、rootfs 升级和锁屏持续执行仍待完成或实测。真机命令验收状态见[端侧运行时设计](docs/ON_DEVICE_RUNTIME.md)与[最新迭代记录](docs/ITERATIONS.md)。
 
 ## 讨论与迭代查询
 
-从[讨论索引](docs/DISCUSSIONS.md)查询历史修正、[决定](docs/DECISIONS.md)、[待决事项](docs/STARTUP_REVIEW.md)和[迭代记录](docs/ITERATIONS.md)。新增[设计原则](docs/DESIGN_PRINCIPLES.md)及[双端与文件关系](docs/DEVICE_AND_FILES.md)。
+从[讨论索引](docs/DISCUSSIONS.md)查询历史修正、[决定](docs/DECISIONS.md)、[待决事项](docs/STARTUP_REVIEW.md)和[迭代记录](docs/ITERATIONS.md)。新增[设计原则](docs/DESIGN_PRINCIPLES.md)、[双端与文件关系](docs/DEVICE_AND_FILES.md)及[长期记忆运行机制对照与评估](docs/MEMORY_RUNTIME_COMPARISON_2026-10-11.md)。
 
-从[开工状态](docs/STARTUP_REVIEW.md)查询方案与实际实现进度。请以[迭代记录](docs/ITERATIONS.md)中的测试、构建和设备证据为准。
+从[开工状态](docs/STARTUP_REVIEW.md)查询方案与实际实现进度。请以[需求覆盖审计](docs/REQUIREMENT_AUDIT_2026-10-10.md)和[迭代记录](docs/ITERATIONS.md)中的测试、构建和设备证据为准。
 
 ## 讨论文档
 
@@ -49,11 +51,12 @@ iOS 运行环境参考 OpenMinis，原生交互技术参考 Lody iOS，产品交
 14. [iOS/macOS 技术选型推荐](docs/APP_STACK.md)
 15. [一期 Muse 对齐与需求验收](docs/PHASE1_PARITY.md)
 16. [Muse iOS 真机交互记录](docs/muse-research/IOS_INTERACTIONS_2026-10-10.md)
+17. [iPhone 端侧 Agent Runtime 设计](docs/ON_DEVICE_RUNTIME.md)
 
 长期“电脑”入口将参考 UU 远程，连接个人电脑的远程桌面；连接与控制方案待设计。
 
 ## 开源与命名
 
-本仓库原创文档与应用代码使用 MIT 许可证。当前没有导入上游代码；以后如复用上游组件，会先核对许可证和分发要求。公开仓库不保存个人对话、记忆、凭证或私人连接器数据。
+本仓库原创应用代码与文档采用 GNU GPL-3.0；iSH fork 保留自己的许可文件，ZIPFoundation 与 Alpine 软件包按各自许可分发。具体版本、依赖清单与许可说明见[第三方声明](THIRD_PARTY_NOTICES.md)，iPhone App 内也可查看许可材料。公开仓库不保存个人对话、记忆、凭证或私人连接器数据。
 
 OpenMuse 是暂定工作名。本项目独立于 Meta Muse、nanoMuse、OpenMinis、Lody 及已有的 CopilotKit/OpenMuse 项目，正式发布前会重新确认品牌命名。

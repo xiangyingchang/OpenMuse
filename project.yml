@@ -17,7 +17,7 @@ targets:
       properties:
         CFBundleDisplayName: OpenMuse
         CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: "2"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationPortraitUpsideDown
@@ -38,7 +38,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios
         PRODUCT_NAME: OpenMuse
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 2
+        CURRENT_PROJECT_VERSION: 7
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
@@ -48,6 +48,44 @@ targets:
         SWIFT_VERSION: 5.9
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
+        SWIFT_OBJC_BRIDGING_HEADER: Apps/iOS/OpenMuse-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - $(inherited)
+          - $(SRCROOT)/Vendor/ish-arm64
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]":
+          - $(inherited)
+          - $(SRCROOT)/.build/OpenMuse-iSH/lib
+        "OTHER_LDFLAGS[sdk=iphoneos*]":
+          - $(inherited)
+          - -lish
+          - -lish_emu
+          - -lfakefs
+          - -lsqlite3
+          - -lresolv
+          - -lm
+    preBuildScripts:
+      - name: Build pinned iSH ARM64 runtime
+        script: |
+          set -euo pipefail
+          if [[ "$PLATFORM_NAME" != "iphoneos" ]]; then exit 0; fi
+          "$SRCROOT/Scripts/build-ish-ios.sh"
+    postBuildScripts:
+      - name: Bundle Alpine iSH rootfs and package notices
+        script: |
+          set -euo pipefail
+          resources="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$resources"
+          cp "$SRCROOT/LICENSE" "$resources/LICENSE"
+          cp "$SRCROOT/THIRD_PARTY_NOTICES.md" "$resources/THIRD_PARTY_NOTICES.md"
+          cp "$SRCROOT/Vendor/ish-arm64/LICENSE.md" "$resources/iSH-LICENSE.md"
+          cp "$SRCROOT/Vendor/ish-arm64/LICENSE.IOS" "$resources/iSH-LICENSE.IOS"
+          if [[ "$PLATFORM_NAME" != "iphoneos" ]]; then exit 0; fi
+          rm -rf "$resources/alpine-rootfs"
+          ditto "$SRCROOT/.build/OpenMuse-iSH/alpine-rootfs" "$resources/alpine-rootfs"
+          if [[ -f "$SRCROOT/.build/OpenMuse-iSH/alpine-package-notices.txt" ]]; then
+            cp "$SRCROOT/.build/OpenMuse-iSH/alpine-package-notices.txt" "$resources/alpine-package-notices.txt"
+          fi
   OpenMuseMac:
     type: application
     platform: macOS
@@ -61,7 +99,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.mac
         PRODUCT_NAME: OpenMuse
         MARKETING_VERSION: 0.1.0
-        CURRENT_PROJECT_VERSION: 2
+        CURRENT_PROJECT_VERSION: 5
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.productivity
@@ -70,6 +108,16 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         ENABLE_APP_SANDBOX: NO
         CODE_SIGN_STYLE: Automatic
+    postBuildScripts:
+      - name: Bundle open source licenses and notices
+        script: |
+          set -euo pipefail
+          resources="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$resources"
+          cp "$SRCROOT/LICENSE" "$resources/LICENSE"
+          cp "$SRCROOT/THIRD_PARTY_NOTICES.md" "$resources/THIRD_PARTY_NOTICES.md"
+          cp "$SRCROOT/Vendor/ish-arm64/LICENSE.md" "$resources/iSH-LICENSE.md"
+          cp "$SRCROOT/Vendor/ish-arm64/LICENSE.IOS" "$resources/iSH-LICENSE.IOS"
   OpenMuseiOSUITests:
     type: bundle.ui-testing
     platform: iOS

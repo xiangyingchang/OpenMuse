@@ -5,14 +5,15 @@
 ## 阅读顺序
 
 1. [记忆维护与 dreaming](MEMORY_AND_DREAMING.md)：机制、可学之处与待验证场景。
-2. [场景核对清单](SCENARIOS.md)：在对应设计迭代时问用户 Muse 如何处理。
-3. [证据版本记录](SNAPSHOT.json)：上游 commit、文件链接、字节数、SHA-256 与阅读范围。
-4. [更新记录](UPDATES.md)：追加变化，不覆盖旧结论。
-5. [整体证据分层](../MUSE_MEMORY_RESEARCH.md)：官方、社区与开源实现的区别。
+2. [长期记忆运行机制对照与评估](../MEMORY_RUNTIME_COMPARISON_2026-10-11.md)：Muse、OpenClaw、Hermes、nanoMuse 与当前 OpenMuse 代码对照。
+3. [场景核对清单](SCENARIOS.md)：在对应设计迭代时问用户 Muse 如何处理。
+4. [证据版本记录](SNAPSHOT.json)：上游 commit、文件链接、字节数、SHA-256 与阅读范围。
+5. [更新记录](UPDATES.md)：追加变化，不覆盖旧结论。
+6. [整体证据分层](../MUSE_MEMORY_RESEARCH.md)：官方、社区与开源实现的区别。
 
-6. [iOS 真机交互记录](IOS_INTERACTIONS_2026-10-10.md)：主要页面、状态与未验证操作。
+7. [iOS 真机交互记录](IOS_INTERACTIONS_2026-10-10.md)：主要页面、状态与未验证操作。
 
-7. [本地截图使用说明](SCREENSHOT_GUIDE.md)：位置、查看顺序、需求映射、私人迁移与缺失处理。
+8. [本地截图使用说明](SCREENSHOT_GUIDE.md)：位置、查看顺序、需求映射、私人迁移与缺失处理。
 
 ## 原始快照与公开分析
 

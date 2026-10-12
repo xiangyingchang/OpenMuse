@@ -1,6 +1,9 @@
 import Foundation
 
 public final class WorkspaceFiles {
+    private static let heartbeatPlanStart = "<!-- OPENMUSE_HEARTBEAT_PLAN_BEGIN -->"
+    private static let heartbeatPlanEnd = "<!-- OPENMUSE_HEARTBEAT_PLAN_END -->"
+
     public let rootURL: URL
     private let store: SQLiteStore
 
@@ -9,6 +12,7 @@ public final class WorkspaceFiles {
         self.rootURL = rootURL
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
         try ensureTemplates()
+        try refreshProjections()
     }
 
     public static func applicationSupportURL() throws -> URL {
@@ -22,6 +26,43 @@ public final class WorkspaceFiles {
 
     public func document(path: String) throws -> WorkspaceDocument? {
         try documents().first(where: { $0.path == path })
+    }
+
+    public func maintenancePlan() throws -> MaintenancePreferences? {
+        guard let content = try document(path: "HEARTBEAT.md")?.content,
+              let start = content.range(of: Self.heartbeatPlanStart),
+              let end = content.range(of: Self.heartbeatPlanEnd, range: start.upperBound..<content.endIndex) else { return nil }
+        let payload = content[start.upperBound..<end.lowerBound]
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = payload.data(using: .utf8) else { return nil }
+        return try JSONDecoder().decode(MaintenancePreferences.self, from: data)
+    }
+
+    @discardableResult
+    public func saveMaintenancePlan(_ plan: MaintenancePreferences) throws -> WorkspaceDocument {
+        let original = try document(path: "HEARTBEAT.md")?.content ?? "# HEARTBEAT\n"
+        let current = original.replacingOccurrences(of: "- 状态：尚未配置主动计划\n", with: "")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let payload = String(decoding: try encoder.encode(plan), as: UTF8.self)
+        let block = "\(Self.heartbeatPlanStart)\n```json\n\(payload)\n```\n\(Self.heartbeatPlanEnd)"
+        let content: String
+        if let start = current.range(of: Self.heartbeatPlanStart),
+           let end = current.range(of: Self.heartbeatPlanEnd, range: start.upperBound..<current.endIndex) {
+            content = String(current[..<start.lowerBound]) + block + String(current[end.upperBound...])
+        } else {
+            content = current.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\n" + block + "\n"
+        }
+        return try save(path: "HEARTBEAT.md", content: content)
+    }
+
+    /// Rebuilds the editable Markdown surface from SQLite after an interrupted write or import.
+    public func refreshProjections() throws {
+        for document in try documents() {
+            try writeProjection(document)
+        }
     }
 
     @discardableResult
@@ -39,9 +80,160 @@ public final class WorkspaceFiles {
         return updated
     }
 
-    public func promptContext() throws -> String {
-        let selected = try documents().filter { ["SOUL.md", "IDENTITY.md", "USER.md", "GLOBAL.md", "HEARTBEAT.md", "MEMORY.md", "AGENTS.md"].contains($0.path) }
-        return selected.map { "## \($0.path)\n\($0.content)" }.joined(separator: "\n\n")
+    /// Commits a related set of Markdown projections in one SQLite transaction, then
+    /// refreshes their portable file copies. A later refresh repairs interrupted file writes.
+    public func saveAtomically(
+        _ updates: [(path: String, content: String)],
+        including additionalWrites: [SQLiteStoreWrite] = []
+    ) throws -> [WorkspaceDocument] {
+        guard !updates.isEmpty else { return [] }
+        guard Set(updates.map(\.path)).count == updates.count,
+              updates.allSatisfy({ !$0.path.contains("..") && !$0.path.hasPrefix("/") && $0.path.hasSuffix(".md") }) else {
+            throw NSError(domain: "OpenMuse.Workspace", code: 1, userInfo: [NSLocalizedDescriptionKey: "文件路径无效。"])
+        }
+        let existing = Dictionary(uniqueKeysWithValues: try documents().map { ($0.path, $0) })
+        let revised = updates.map { update in
+            WorkspaceDocument(
+                path: update.path,
+                title: URL(fileURLWithPath: update.path).deletingPathExtension().lastPathComponent,
+                content: update.content,
+                revision: (existing[update.path]?.revision ?? 0) + 1
+            )
+        }
+        let documentWrites = try revised.map {
+            try store.prepareWrite($0, kind: RecordKind.document, id: $0.path, revision: $0.revision, appendRevision: true)
+        }
+        try store.saveAtomically(additionalWrites + documentWrites)
+        for document in revised { try writeProjection(document) }
+        return revised
+    }
+
+    public func applyPersonaRefinement(_ candidate: PersonaRefinementCandidate, sourceMessage: MessageRecord) throws -> PersonaRevisionRecord? {
+        guard sourceMessage.role == .user,
+              !sourceMessage.id.isEmpty,
+              candidate.habit.count <= 240,
+              candidate.reason.count <= 240 else {
+            throw NSError(domain: "OpenMuse.Persona", code: 1, userInfo: [NSLocalizedDescriptionKey: "人格修订资料无效。"])
+        }
+        let existing = try store.load(PersonaRevisionRecord.self, kind: RecordKind.personaRevision)
+        guard !existing.contains(where: { $0.sourceMessageID == sourceMessage.id }) else { return nil }
+
+        let current = try document(path: "SOUL.md") ?? {
+            throw NSError(domain: "OpenMuse.Persona", code: 2, userInfo: [NSLocalizedDescriptionKey: "SOUL.md 不存在。"])
+        }()
+        guard let content = PersonaRefinement.appending(candidate.habit, to: current.content) else { return nil }
+        let updated = WorkspaceDocument(
+            path: current.path, title: current.title, content: content,
+            revision: current.revision + 1, updatedAt: .now
+        )
+        let change = PersonaRevisionRecord(
+            sourceMessageID: sourceMessage.id,
+            sourceText: String(sourceMessage.content.prefix(1_000)),
+            habit: candidate.habit,
+            reason: candidate.reason,
+            documentRevision: updated.revision
+        )
+        try store.saveAtomically([
+            try store.prepareWrite(updated, kind: RecordKind.document, id: updated.path, revision: updated.revision, appendRevision: true),
+            try store.prepareWrite(change, kind: RecordKind.personaRevision, id: change.id, appendRevision: true)
+        ])
+        try writeProjection(updated)
+        return change
+    }
+
+    public func undoPersonaRefinement(id: String) throws -> (document: WorkspaceDocument, change: PersonaRevisionRecord) {
+        var change = try store.load(PersonaRevisionRecord.self, kind: RecordKind.personaRevision).first(where: { $0.id == id })
+            ?? { throw NSError(domain: "OpenMuse.Persona", code: 3, userInfo: [NSLocalizedDescriptionKey: "找不到这条人格修订。"] ) }()
+        guard change.status == "applied",
+              let current = try document(path: "SOUL.md"),
+              let content = PersonaRefinement.removing(change.habit, from: current.content) else {
+            throw NSError(domain: "OpenMuse.Persona", code: 4, userInfo: [NSLocalizedDescriptionKey: "SOUL.md 中的这条协作习惯已被手动改动，不能安全地自动撤销。请先查看文件。"])
+        }
+        let updated = WorkspaceDocument(
+            path: current.path, title: current.title, content: content,
+            revision: current.revision + 1, updatedAt: .now
+        )
+        change.status = "undone"
+        change.updatedAt = .now
+        let nextChangeRevision = try store.revisions(PersonaRevisionRecord.self, kind: RecordKind.personaRevision, objectID: change.id).count + 1
+        try store.saveAtomically([
+            try store.prepareWrite(updated, kind: RecordKind.document, id: updated.path, revision: updated.revision, appendRevision: true),
+            try store.prepareWrite(change, kind: RecordKind.personaRevision, id: change.id, revision: nextChangeRevision, appendRevision: true)
+        ])
+        try writeProjection(updated)
+        return (updated, change)
+    }
+
+    public func promptContext(contextWindow: Int = 32_000, query: String = "", relatedConversationIDs: Set<String> = []) throws -> String {
+        try promptContextSnapshot(contextWindow: contextWindow, query: query, relatedConversationIDs: relatedConversationIDs).text
+    }
+
+    func promptContextSnapshot(contextWindow: Int = 32_000, query: String = "", relatedConversationIDs: Set<String> = [], asOf: Date = .now) throws -> PromptContextSnapshot {
+        // HEARTBEAT is a prospective schedule, not ordinary profile context. The
+        // scheduler reads its structured plan directly when a maintenance run fires.
+        let claims = try store.load(MemoryClaimRecord.self, kind: RecordKind.memoryClaim)
+        let forgottenClaimIDs = Set(try store.load(DeletionTombstoneRecord.self, kind: RecordKind.deletionTombstone)
+            .filter { $0.recordKind == RecordKind.memoryClaim }.map(\.recordID))
+        let selected = try documents().filter { ["SOUL.md", "IDENTITY.md", "USER.md", "GLOBAL.md", "MEMORY.md", "AGENTS.md"].contains($0.path) }.map { document in
+            ["USER.md", "GLOBAL.md", "MEMORY.md"].contains(document.path)
+                ? filteringExpiredMemoryProjection(document, claims: claims, forgottenClaimIDs: forgottenClaimIDs, asOf: asOf)
+                : document
+        }
+        let referenceDocuments = query.isEmpty ? [] : try store.load(ReferenceDocumentRecord.self, kind: RecordKind.referenceDocument)
+        let goals = query.isEmpty ? [] : try store.load(GoalRecord.self, kind: RecordKind.goal)
+        var historicalMessages = [MessageRecord]()
+        var historySearchFailed = false
+        if !query.isEmpty {
+            do {
+                historicalMessages = try store.searchUserMessages(
+                    matching: PromptContextBuilder.retrievalTerms(query),
+                    excludingConversationIDs: relatedConversationIDs,
+                    limit: 12
+                )
+            } catch {
+                historySearchFailed = true
+            }
+        }
+        return PromptContextBuilder.build(
+            documents: selected,
+            contextWindow: contextWindow,
+            query: query,
+            memoryClaims: claims,
+            referenceDocuments: referenceDocuments,
+            goals: goals,
+            historicalMessages: historicalMessages,
+            historySearchFailed: historySearchFailed,
+            relatedConversationIDs: relatedConversationIDs,
+            asOf: asOf
+        )
+    }
+
+    private func filteringExpiredMemoryProjection(_ document: WorkspaceDocument, claims: [MemoryClaimRecord], forgottenClaimIDs: Set<String>, asOf: Date) -> WorkspaceDocument {
+        let claimsByID = Dictionary(uniqueKeysWithValues: claims.map { ($0.id, $0) })
+        let lines = document.content.components(separatedBy: .newlines)
+        var filtered = [String]()
+        var index = 0
+        while index < lines.count {
+            let line = lines[index]
+            let prefix = "<!-- openmuse-memory-claim:"
+            if line.hasPrefix(prefix), line.hasSuffix(" -->") {
+                let claimID = String(line.dropFirst(prefix.count).dropLast(4))
+                let claimIsExpiredOrInactive = claimsByID[claimID].map {
+                    $0.status != "active" || !PromptContextBuilder.isWithinValidity($0, asOf: asOf)
+                } ?? false
+                if forgottenClaimIDs.contains(claimID) || claimIsExpiredOrInactive {
+                    if let previous = filtered.last, previous.hasPrefix("<a id=\"claim-") { filtered.removeLast() }
+                    index += 1
+                    if index < lines.count, lines[index].hasPrefix("- ") { index += 1 }
+                    continue
+                }
+            }
+            filtered.append(line)
+            index += 1
+        }
+        var result = document
+        result.content = filtered.joined(separator: "\n")
+        return result
     }
 
     private func ensureTemplates() throws {
@@ -68,26 +260,27 @@ public final class WorkspaceFiles {
             ("USER.md", """
 # USER
 
-这里记录已确认、当前有效的用户事实与偏好。首次安装时为空；不根据示例内容推断用户情况。
+这里展示当前用户画像的精简视图。自动维护区与 MEMORY.md 中的记录共享同一个记忆 ID；编辑自动维护的条目会更新结构化记忆。
+手写补充放在自动维护区之外。首次安装时没有用户事实，不根据示例内容推断用户情况。
 """),
             ("GLOBAL.md", """
 # GLOBAL
 
-跨主题的长期背景索引。事实需标明来源和适用范围；与 USER.md、MEMORY.md 共享事实，不创建相互冲突的副本。
+跨主题的导航索引。自动维护区只链接到 MEMORY.md 中的规范记忆条目，不创建第二份事实；可在索引区之外补充手写背景。
 """),
             ("HEARTBEAT.md", """
 # HEARTBEAT
 
-- 状态：尚未配置主动计划
-- 执行设备：Mac 在线时优先；手机后台能力需逐设备验证
-- 漏跑策略：不把未运行写成已完成
+- 此处保存结构化主动计划，可随工作区导出和同步。
+- 系统后台能力受各设备限制；没有运行记录时不得写成已完成。
 
 此文件描述计划，不会自行唤醒系统或绕过 iOS 后台限制。
 """),
             ("MEMORY.md", """
 # MEMORY
 
-精选长期事实与偏好。首次安装时为空；明确事实、外部推断和短期状态必须区分，并保留纠正来源。
+当前有效的长期记忆账本。每条自动维护记录对应 SQLite 中唯一的结构化 claim；来源、日期、范围与推断状态随记录呈现。
+用户编辑自动维护条目会更新同一条 claim；历史修订保存在记录历史中。手写补充放在自动维护区之外。
 """),
             ("AGENTS.md", """
 # WORKSPACE GUIDE
@@ -101,5 +294,11 @@ public final class WorkspaceFiles {
         for (path, content) in templates where !known.contains(path) {
             _ = try save(path: path, content: content)
         }
+    }
+
+    private func writeProjection(_ document: WorkspaceDocument) throws {
+        let destination = rootURL.appendingPathComponent(document.path)
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(document.content.utf8).write(to: destination, options: .atomic)
     }
 }

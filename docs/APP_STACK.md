@@ -7,8 +7,8 @@
 | 层 | iOS | macOS |
 |---|---|---|
 | 界面 | Swift + SwiftUI 页面，UIKit 聊天列表与输入 | Swift + SwiftUI 页面，必要时 AppKit |
-| 执行控制 | 原生 Swift agent 控制、模型与工具适配 | 固定版本 Pi，由独立 Node 子进程包装 |
-| 辅助工具环境 | 参考 OpenMinis 的 iSH 集成；具体复用边界待验证 | Pi 工具经宿主权限与指定工作区访问本机 |
+| 执行控制 | Swift 宿主 Agent Runtime；Mac 在线优先委派 Pi，离线使用手机 tool loop | 固定版本 Pi，由独立 Node 子进程包装 |
+| 辅助工具环境 | 已接入固定 iSH/Alpine ARM64 guest 与 Swift 宿主审批/会话挂载；原生 iOS offload、rootfs 升级与真机使用验收单列跟进 | Pi 工具经宿主权限与指定工作区访问本机 |
 | 产品状态 | 共用 Swift 数据协议与存储模块 | 同一协议和模块，Pi 会话不作为唯一产品状态 |
 | 数据 | 本地 SQLite；Markdown 通过统一版本事务编辑 | 同样本地 SQLite 与文件协议 |
 | 同步 | CloudKit 私有记录为首选候选，附件候选 iCloud Drive | 使用相同同步协议，不共享活跃数据库文件 |
@@ -30,9 +30,9 @@ Lody 的 RN/Expo 壳适合其迭代方式；OpenMuse 当前只有 Apple 双端�
 
 ## Pi 和手机执行的边界
 
-Mac 用 Pi 负责模型回合与工具事件；产品层负责人格、记忆、目标、维护运行和成果。通过版本化 RuntimeAdapter 传递命令、事件与取消，验证 Pi 可用接口后选择 RPC 或自有 SDK 包装；不能把任意 stdout 当可靠协议。进程重启、重复事件与工具失败不能丢产品状态。
+Mac 用 Pi 负责模型回合与 Mac 工具事件；产品层负责人格、记忆、目标、维护运行和成果。通过版本化 RuntimeAdapter 传递命令、事件与取消；不能把任意 stdout 当可靠协议。进程重启、重复事件与工具失败不能丢产品状态。
 
-iPhone 首选原生控制模型请求与任务，Linux 小环境执行脚本和文件工具。不会把 React Native 的 JS 运行时等同于可运行 Pi 的 Node 环境。Pi 在手机小环境中运行仍只是备选实验。
+iPhone 的执行位置和模型推理位置分开：模型仍通过用户选择的 API 调用，工具由手机宿主在本机执行。当前有 OpenAI-compatible function/tool loop、七项本机能力、正式核心文件只读入口、按对话隔离并持久保存在 Application Support 的工作区，以及固定 iSH/Alpine ARM64 guest 命令执行器。shell 每次都要用户单独批准，最长45秒、输出最多12 KB；guest 可联网、可改写私有 Alpine rootfs，但只能看到当前对话目录挂载，不能直接读取 Keychain、SQLite、Mac 或其他 App 文件。iSH 与 App 共进程，目录与资源限制不能宣传成强隔离 VM。真机命令验收、native offload、rootfs 升级、双端工作区自动同步和后台长任务仍未完成。Android PRoot 不适用于 iOS，也不把 Pi/Node 搬到手机。完整方案与准确验收边界见 [ON_DEVICE_RUNTIME](ON_DEVICE_RUNTIME.md)。
 
 代价是双端执行适配器不同，需要同一组行为合约验收模型切换、工具失败、取消、目标状态和记忆提交。共用 Swift 状态层与跨运行时 JSON 协议，避免两份独立产品逻辑。跨平台 UI 复用减少，但权限、后台与 Apple 数据路径更集中。
 
@@ -52,8 +52,8 @@ iPhone 首选原生控制模型请求与任务，Linux 小环境执行脚本和�
 4. 双端记忆修订、文件编辑、iCloud 冲突与导出迁移。
 5. 实际模型和中国直连环境验收。
 
-这些是实现验证范围。原生路线由 D31 确认；细节仍按下方迭代记录标注已验证、待验证或暂定。
+这些是实现验证范围。原生路线由 D31 确认；用户于 D32 确认仓库采用 GNU GPL-3.0 并集成固定 iSH fork。上游代码和 Alpine 软件包仍按各自许可保留声明，真机命令验收见 T52。
 
 ## 2026-10-10实现基线补充
 
-界面按UI_SPEC和本地Muse证据；连接路线采用Tailscale，首轮RUNTIME_PROTOCOL直接同步本地记录/附件，iCloud按D28后接。当前已搭建原生Swift双端工程与首轮本地存储；详见 IMPLEMENTATION_PLAN 和 ITERATIONS。Pi RPC 仅先用于不开放工具的模型回合，Mac 本地工具执行与权限隔离尚未实现；小环境路径、供应商端点和依赖仍需验证。不改Lody现有服务，也不复制其 RN 客户端代码。
+界面按UI_SPEC和本地Muse证据；连接路线采用Tailscale，首轮RUNTIME_PROTOCOL直接同步本地记录和 TXT/Markdown/PDF 附件，iCloud按D28后接。当前已搭建原生Swift双端工程与本地存储；Mac Pi 已开放用户选定目录的限量只读文本工具，并接入单轮任务接管、检查点、取消和活动记录；尚未实现写文件、浏览器/桌面控制与实时步骤流。手机 tool loop 已能读取历史/目标/核心记忆，并在隔离对话目录中读写中间文本；iSH/Alpine 命令执行器已接入；浏览器命令 `openmuse-browser-use` 已通过 native offload 与模型共用对话标签。更多 iOS 原生 offload、guest 更新策略和锁屏后台仍待完成或验收。详细路线见 [ON_DEVICE_RUNTIME](ON_DEVICE_RUNTIME.md)；不改Lody现有服务，也不复制其 RN 客户端代码。
