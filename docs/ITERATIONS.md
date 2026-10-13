@@ -804,4 +804,5 @@
 - 变更：左右顶栏操作的垂直 offset 从 `-23pt` 调整到 `-10pt`（下移13pt），保持两端对齐，顶栏仍透明、圆形按钮保留半透明材质。“我的”改用普通底栏 Tab 页面，保留活动、批准、桌面端、近期和身份子页，切换到其他 Tab 时直接离开页面。已保存旁聊在侧栏行尾新增更多菜单和二次确认；导入聊天不提供该操作。
 - 删除语义：事务性删除旁聊、消息及仅由该旁聊引用的附件文件，并为同步记录写入删除墓碑；有配对 Mac 时触发同步。运行中的发送、任务或来源回顾会阻止删除。嵌套旁聊、目标、构件、活动和执行记录保留并转到上一级聊天；目标/构件的源消息引用被清理，已确认记忆继续保留。附件仍被其他消息引用时不删除文件。墓碑批次上限从500提升至10,000条，避免约250轮聊天后无法删除的旧限制。
 - 验证：`swift test` 执行277项、2项条件跳过、0失败；新增删除测试覆盖消息/附件墓碑、附件文件清理、目标/构件/活动/执行/记忆保留、活动运行时阻止删除，以及501条消息的长旁聊原子删除。日志 `.build/logs/openmuse-t86-core-tests-final.log`。iPhone 17 Pro Max / iOS 26.5 模拟器通过3项 UI 用例：我的页面普通 Tab 往返、侧栏二次确认删除旁聊、顶部按钮 y≥68pt 且左右对齐；结果 `.build/OpenMuse-T86-Navigation-UI-Verified.xcresult`，日志 `.build/logs/openmuse-t86-ui-tests-verified.log`。macOS `OpenMuseMac` Debug 构建通过，日志 `.build/logs/openmuse-t86-mac-debug-build.log`。定向删除测试日志 `.build/logs/openmuse-t86-deletion-core-tests.log`。
-- 限制：本轮只做模拟器 UI 验收，不是 iPhone 真机安装；未连接配对 Mac 实测墓碑网络同步，也未生成 Release IPA。核心和界面回归不覆盖真实设备屏幕差异。提交与推送结果在本条后续更新。
+- 限制：本轮只做模拟器 UI 验收，不是 iPhone 真机安装；未连接配对 Mac 实测墓碑网络同步，也未生成 Release IPA。核心和界面回归不覆盖真实设备屏幕差异。
+- 交付：实现提交 `d6ee6cf`（`Improve iOS navigation and side chat deletion`）已推送至 `origin/main`；其后本次记录更新也会独立提交，保留已推送的实现历史。
