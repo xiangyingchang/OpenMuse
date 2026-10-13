@@ -22,6 +22,12 @@ public struct OpenMuseRootView: View {
         #endif
     }
 
+    private var isCompanionPanelPresented: Bool {
+        guard let sheet = model.presentedSheet else { return false }
+        if case .companion = sheet { return true }
+        return false
+    }
+
     public var body: some View {
         Group {
         #if os(macOS)
@@ -173,42 +179,10 @@ public struct OpenMuseRootView: View {
                     .offset(y: topBarActionOffset)
             }
             .accessibilityLabel("打开侧栏")
-            #endif
-
+            Spacer(minLength: 2)
+            #else
             Spacer(minLength: 2)
             Button { model.presentedSheet = .companion } label: {
-                #if os(iOS)
-                VStack(spacing: -2) {
-                    OpenMuseOrb(isActive: model.isSending, size: 64)
-                    Text("OpenMuse")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(OpenMusePalette.text)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .overlay(Capsule().fill(Color.white.opacity(0.06)))
-                        .overlay(Capsule().stroke(Color.white.opacity(0.12), lineWidth: 0.7))
-                        .shadow(color: .black.opacity(0.22), radius: 4, y: 1)
-                        .zIndex(1)
-                    if model.isSending {
-                        HStack(spacing: 5) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 9, weight: .semibold))
-                            Text(model.activeActivity?.stage ?? "正在回复")
-                                .font(.system(size: 11, weight: .medium))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
-                        .foregroundStyle(OpenMusePalette.text.opacity(0.9))
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .shadow(color: .black.opacity(0.9), radius: 3, y: 1)
-                        .accessibilityIdentifier("openmuse-reply-status")
-                    }
-                }
-                .frame(maxWidth: 220)
-                .fixedSize(horizontal: true, vertical: false)
-                #else
                 VStack(spacing: 3) {
                     OpenMuseOrb(isActive: model.isSending, size: 38)
                     Text("OpenMuse")
@@ -222,11 +196,11 @@ public struct OpenMuseRootView: View {
                     }
                 }
                 .frame(maxWidth: 250)
-                #endif
             }
             .buttonStyle(.plain)
             .accessibilityLabel("OpenMuse，查看活动、设备与身份")
             Spacer(minLength: 2)
+            #endif
             Menu {
                 if model.selectedSection == .chat {
                     Button("新对话", systemImage: "square.and.pencil") { model.beginNewConversation() }
@@ -298,6 +272,26 @@ public struct OpenMuseRootView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(section.rawValue)
             }
+            Button {
+                model.presentedSheet = .companion
+            } label: {
+                Image(systemName: "person.crop.circle")
+                    .font(.system(size: 21, weight: .regular))
+                    .foregroundStyle(OpenMusePalette.text.opacity(isCompanionPanelPresented ? 1 : 0.82))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 50)
+                    .background {
+                        if isCompanionPanelPresented {
+                            Capsule()
+                                .fill(Color.black.opacity(0.48))
+                                .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.7))
+                                .padding(.horizontal, -3)
+                        }
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("我的")
+            .accessibilityIdentifier("open-my-panel")
         }
         .padding(6)
         .background {

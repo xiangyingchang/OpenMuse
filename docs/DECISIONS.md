@@ -30,6 +30,7 @@
 | D46 | 回复默认简洁、直接、可用；复杂问题按需要充分解释，不使用固定字数上限 | 用户 2026-10-13 明确要求“相对简洁有用”，并说明复杂事项需讲清 |
 | D47 | 主聊构件卡按来源消息内联到同一时间线；后续新聊天排在卡片之后。没有可匹配来源消息的旧构件只在资源库显示，不删除数据 | 用户 2026-10-13 确认修复方案 |
 | D48 | 左侧抽屉收窄到约屏宽 76%，只保留主聊入口和对话列表；暂停“点子”导航但保留原数据/实现；回复完成状态使用自然语言，不暴露模型与本地副本术语 | 用户 2026-10-13 明确要求；宽度按本地 Muse 侧栏截图对齐 |
+| D49 | 空旁聊不持久化/不列出；iOS 聊天顶部移除 OpenMuse 头像入口，底栏新增“我的”打开原陪伴者面板；运行任务通过 ActivityKit/WidgetKit 展示隐私安全的真实阶段状态 | 用户 2026-10-13 明确提出；图标用系统 person.crop.circle；灵动岛作为原生阶段展示而非续跑保证 |
 
 ## 需求演变
 
@@ -193,3 +194,11 @@ OpenMinis 固定提交通过 `BrowserUseOffloadBridge` 让 iSH 的 `minis-browse
 ## 2026-10-13 侧栏、点子暂停与活动状态文案（D48）
 
 iOS 左侧抽屉约占屏幕宽度 76%，使对话仍有可见区域；只显示主聊入口和对话列表，不重复底部动态/目标/资源库导航。底部导航暂时隐藏“点子”，对应代码和已存数据保留，后续可重新启用。回复完成状态用“已回复，聊天记录已保存。”一类面向用户的表述；Mac 暂不可用时说明已在手机继续处理，不提模型服务名称或“副本”。实现与验收见 [T84](ITERATIONS.md#t84)。
+
+## 2026-10-13 空旁聊、我的入口与灵动岛运行状态（D49）
+
+旁聊在第一条用户消息和附件成功原子保存前只是临时编辑态；空旁聊不写入对话列表或持久化工作区。第一条内容保存成功时，同时保存新对话标题、用户消息及附件；发送保存失败时仍不出现空会话。已存在的对话草稿仍按原有行为保留。
+
+iOS 主聊天顶部不再显示 OpenMuse 头像/名称入口。底部导航新增最右侧“我的”，使用系统 person.crop.circle 图标，打开原有陪伴者页面与活动/身份入口；Mac 布局不受此 iOS 导航调整影响。
+
+iOS 运行任务可请求系统 Live Activity，并在锁屏和 Dynamic Island 显示 OpenMuse 名称、真实任务阶段与不确定进度的旋转状态。内容不包含提示词、对话标题、网址或工具参数。阶段来自本机任务/工具状态；过期后显示进度未更新，任务完成、失败或取消后短暂展示终态并收起。该能力依赖 iOS 17+ 与用户/系统允许 Live Activities；禁用或请求失败时，应用内活动记录仍为唯一状态入口。Live Activity 仅呈现运行状态，不承诺后台续跑、准时唤醒或 APNs 远程更新。官方 API 依据：[Apple Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities?changes=_6)、[ActivityConfiguration](https://developer.apple.com/documentation/widgetkit/activityconfiguration)、[DynamicIsland](https://developer.apple.com/documentation/widgetkit/dynamicisland)。详细实现和验收见 T85。

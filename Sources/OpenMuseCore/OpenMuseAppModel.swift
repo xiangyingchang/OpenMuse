@@ -77,6 +77,9 @@ public final class OpenMuseAppModel: ObservableObject {
     private let phoneSandboxRuntime: (any PhoneSandboxCommandRuntime)?
     private let phoneBrowserRuntime: (any PhoneBrowserRuntime)?
     private var conversation: ConversationRecord
+    #if os(iOS)
+    private let liveActivityController = OpenMuseLiveActivityController.shared
+    #endif
     private let runtime: ModelRuntime
     private let maintenanceRuntime: ModelRuntime
     private let permitsAutomaticMaintenance: Bool
@@ -1229,12 +1232,15 @@ public final class OpenMuseAppModel: ObservableObject {
             statusText = "当前任务结束或取消前，暂时不能切换或新建对话。"
             return
         }
-        draftsByConversation[conversation.id] = draft
+        if conversations.contains(where: { $0.id == conversation.id }) {
+            draftsByConversation[conversation.id] = draft
+        } else {
+            // A side chat is a draft until its first message is saved.
+            draftsByConversation.removeValue(forKey: conversation.id)
+            pendingAttachments.removeAll()
+        }
         let next = ConversationRecord(parentConversationID: parentConversationID)
-        do { try database?.save(next, kind: RecordKind.conversation, id: next.id) }
-        catch { statusText = error.localizedDescription; return }
         conversation = next
-        conversations.insert(next, at: 0)
         messages = []
         selectedSection = .chat
         draft = ""
@@ -1254,7 +1260,13 @@ public final class OpenMuseAppModel: ObservableObject {
             presentedSheet = nil
             return
         }
-        draftsByConversation[conversation.id] = draft
+        if conversations.contains(where: { $0.id == conversation.id }) {
+            draftsByConversation[conversation.id] = draft
+        } else {
+            // Do not leave an unreachable, unlisted side-chat draft behind.
+            draftsByConversation.removeValue(forKey: conversation.id)
+            pendingAttachments.removeAll()
+        }
         conversation = stored
         let allMessages = (try? database?.load(MessageRecord.self, kind: RecordKind.message)) ?? []
         messages = ConversationContinuity.orderedMessages(allMessages.filter { $0.conversationID == stored.id })
@@ -1551,12 +1563,23 @@ public final class OpenMuseAppModel: ObservableObject {
             id: messageID, conversationID: conversation.id, role: .user, content: text,
             attachmentIDs: createdAttachments.isEmpty ? nil : createdAttachments.map(\.id)
         )
+        var savedConversation = conversation
+        if savedConversation.isPrimary != true && savedConversation.title == "新对话" {
+            savedConversation.title = String((text.isEmpty ? "分享的附件" : text).prefix(24))
+        }
+        savedConversation.updatedAt = .now
         do {
-            var writes = try createdAttachments.map {
+            var writes = [try database.prepareWrite(
+                savedConversation, kind: RecordKind.conversation, id: savedConversation.id, appendRevision: true
+            )]
+            writes += try createdAttachments.map {
                 try database.prepareWrite($0, kind: RecordKind.attachment, id: $0.id, revision: 1, appendRevision: true)
             }
             writes.append(try database.prepareWrite(userMessage, kind: RecordKind.message, id: userMessage.id, revision: 1, appendRevision: true))
             try database.saveAtomically(writes)
+            conversation = savedConversation
+            conversations.removeAll { $0.id == savedConversation.id }
+            conversations.insert(savedConversation, at: 0)
             attachments.append(contentsOf: createdAttachments)
             messages.append(userMessage)
             pendingAttachments.removeAll { queued in pending.contains(where: { $0.id == queued.id }) }
@@ -1564,11 +1587,6 @@ public final class OpenMuseAppModel: ObservableObject {
             createdAttachments.forEach { try? attachmentStore?.remove(id: $0.id) }
             statusText = "消息没有保存：\(error.localizedDescription)"
             return
-        }
-        do {
-            try persistConversationTitle(from: text.isEmpty ? "分享的附件" : text)
-        } catch {
-            statusText = "消息和附件已保存，但对话标题没有更新：\(error.localizedDescription)"
         }
 
         let goalCapture = createGoalIfNeeded(from: userMessage, database: database)
@@ -1608,6 +1626,9 @@ public final class OpenMuseAppModel: ObservableObject {
             return
         }
         activities.insert(activity, at: 0)
+        #if os(iOS)
+        liveActivityController.start(activityID: activity.id, phase: .replying)
+        #endif
         isSending = true
         liveResponse = ""
         lastReplyUsage = nil
@@ -2438,6 +2459,14 @@ public final class OpenMuseAppModel: ObservableObject {
             title = filename.map { "读取 \($0)" } ?? "读取授权资料"
         }
         recordActivityOperation(event, activityID: activityID, stepID: stepID, group: isPhoneTool ? "PHONE" : "MAC", title: title, database: database, persist: persist)
+        #if os(iOS)
+        if ["started", "running", "awaiting-approval", "approved"].contains(event.status) {
+            liveActivityController.update(
+                activityID: activityID,
+                phase: event.status == "awaiting-approval" ? .awaitingConfirmation : .processing
+            )
+        }
+        #endif
         let detail: String
         if event.toolName == "openmuse_phone_workspace_write" {
             switch event.status {
@@ -4583,17 +4612,6 @@ public final class OpenMuseAppModel: ObservableObject {
         return (parts.joined(separator: "\n\n"), remainingBudget)
     }
 
-    private func persistConversationTitle(from text: String) throws {
-        guard let database else { return }
-        if conversation.isPrimary != true && conversation.title == "新对话" {
-            conversation.title = String(text.prefix(24))
-        }
-        conversation.updatedAt = .now
-        try database.save(conversation, kind: RecordKind.conversation, id: conversation.id)
-        conversations.removeAll { $0.id == conversation.id }
-        conversations.insert(conversation, at: 0)
-    }
-
     private func createGoalIfNeeded(from message: MessageRecord, database: SQLiteStore) -> GoalCaptureOutcome {
         let candidate = IntentCapture.goalCandidate(from: message.content)
         if let candidate,
@@ -4919,6 +4937,9 @@ public final class OpenMuseAppModel: ObservableObject {
         activities[index].stage = stage
         activities[index].updatedAt = .now
         try? database.save(activities[index], kind: RecordKind.task, id: id)
+        #if os(iOS)
+        liveActivityController.finish(activityID: id, status: status, stage: stage)
+        #endif
     }
 
     private func updateActivityOwner(_ id: String, ownerDeviceID: String, stage: String, database: SQLiteStore) {
@@ -4927,6 +4948,9 @@ public final class OpenMuseAppModel: ObservableObject {
         activities[index].stage = stage
         activities[index].updatedAt = .now
         try? database.save(activities[index], kind: RecordKind.task, id: id)
+        #if os(iOS)
+        liveActivityController.update(activityID: id, phase: OpenMuseLiveActivityPhase.current(stage: stage))
+        #endif
     }
 
     private func showMacBridgeHeartbeat(activityID: String, isAlive: Bool) {
@@ -4938,6 +4962,9 @@ public final class OpenMuseAppModel: ObservableObject {
         guard activities[index].stage != stage else { return }
         activities[index].stage = stage
         activities[index].updatedAt = .now
+        #if os(iOS)
+        liveActivityController.update(activityID: activityID, phase: OpenMuseLiveActivityPhase.current(stage: stage))
+        #endif
     }
 
     private func updateActivityStep(_ id: String, index stepIndex: Int, status: String, detail: String, database: SQLiteStore) {
@@ -4955,6 +4982,12 @@ public final class OpenMuseAppModel: ObservableObject {
             case 3: "正在整理回复与成果"
             default: detail
             }
+            #if os(iOS)
+            liveActivityController.update(
+                activityID: id,
+                phase: OpenMuseLiveActivityPhase.current(stage: activities[activityIndex].stage)
+            )
+            #endif
         }
         activities[activityIndex].updatedAt = .now
         try? database.save(activities[activityIndex], kind: RecordKind.task, id: id)

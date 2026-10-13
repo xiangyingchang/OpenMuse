@@ -1,5 +1,13 @@
 # 迭代记录
 
+## T85：2026-10-13 空旁聊、我的入口与灵动岛任务状态
+
+- 需求与方案：对应 D49、PRD 第26节。新旁聊在首条用户消息/附件原子保存前是临时编辑态，空白或保存失败不进入对话列表；iOS 聊天顶部移除 OpenMuse 头像/名称入口，底栏新增最右侧“我的”并复用陪伴者面板；运行阶段通过 ActivityKit/WidgetKit Live Activity 呈现。
+- 实现：首条消息保存时将对话标题、对话、附件与消息放入同一 SQLite 原子事务；切换离开未持久化的空旁聊不会保留列表项。iOS 用 person.crop.circle 提供“我的”；Mac 顶部身份入口不变。新增 Widget Extension，在锁屏/Dynamic Island 显示固定阶段和不定式进度，不携带聊天内容、标题、网址或工具参数；禁用时继续使用应用内活动记录。等待/暂停映射优先于“Mac 正在处理”，避免 Mac 心跳中断时显示仍在运行。
+- 验证：Core 定向测试5/5通过（空旁聊不落库、首条消息原子保存、已创建旁聊草稿保留、Live Activity 阶段标签）；iOS Simulator Debug 构建通过，扩展静态 Info.plist 含 WidgetKit 扩展声明且模拟器安装成功。三项导航 UI 用例最终均通过：全套首轮2通过/1失败，失败在侧栏测试仍打开侧栏时查找底栏按钮；中间重跑发现 SwiftUI 未暴露测试所用 identifier，改在关闭侧栏后按可访问性标签断言，侧栏用例重跑1/1通过。结果：`.build/OpenMuse-T85-Navigation-UI2.xcresult`（2通过/1测试断言顺序失败）和 `.build/OpenMuse-T85-Navigation-UI4.xcresult`（修正后的侧栏用例1/1）；Core 日志 `.build/logs/openmuse-t85-core-tests-final.log`，iOS 构建日志 `.build/logs/openmuse-t85-ios-simulator-build-final.log`。`plutil -lint Apps/iOS/LiveActivity/Info.plist` 与 `git diff --check` 通过。UI 测试未发起真实任务，故未验证 Live Activity 实际弹出、锁屏状态更新或实体 Dynamic Island 的视觉呈现。
+- Release/签名阻塞：本轮尝试 iOS Release archive，Xcode 在签名准备阶段报告 `No Accounts`，且找不到 `org.openmuse.ios.live-activity` 的 iOS App Development provisioning profile。现有 T84 描述文件只覆盖 `org.openmuse.ios` 主 App；新增扩展需要 Personal Team 自动签名生成独立 profile。当前 Computer Use 会话没有可控制的 Xcode 窗口，无法替用户恢复 Apple 账号登录。签名归档未生成 IPA，也未安装真机；随后未签名 iOS ARM64 Release 编译通过，生成检查包 `.build/OpenMuse-T85-iOS-Release/unsigned/OpenMuse-0.1.3-14-unsigned.zip`（15 MB，SHA-256 `97a2f7e90674b5a94d6de13ff9a7925322bad9b602ef5df70b7ecae41403d352`），内含主 App 与 Widget Extension，但不可安装。包版本为 `0.1.3 (14)`。完成可安装 IPA 的下一步：在 Xcode Settings → Accounts 重新验证 Apple 账号/Personal Team，随后为 `org.openmuse.ios.live-activity` 生成描述文件、重新归档、导出并验签。日志 `.build/logs/openmuse-t85-ios-release-archive.log`、`.build/logs/openmuse-t85-ios-release-unsigned-build.log`。没有创建 GitHub Release。
+- 提交与推送：见本轮最终 commit；只推送原创代码和脱敏产品文档。
+
 ## T84：2026-10-13 收窄侧栏、暂停点子并优化活动状态文案
 
 - 用户反馈：左侧抽屉过宽，重复展示动态/点子/目标/资源库入口；点子暂时不需要；活动里的“已由 iPhone 的模型回复；对话副本保存在本机。”太技术化。对照 Muse 本地侧栏截图后，iOS 抽屉从屏宽约 82% 收窄到 76%（最大 340pt）；抽屉只保留“聊天”主聊入口和对话列表，底栏保留动态/目标/资源库并暂停点子入口。点子页面、枚举与反馈记录保留，后续可以恢复；没有删除数据。iPhone 和 Mac 的正常回复都显示“已回复，聊天记录已保存。”，Mac 不可用时说明手机已继续处理。

@@ -32,7 +32,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chat-add-attachment"].waitForExistence(timeout: 3))
         XCTAssertFalse(app.buttons["点子"].exists, "Ideas are paused in the app navigation for now.")
 
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         XCTAssertTrue(app.buttons["活动"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["还没有活动"].waitForExistence(timeout: 3))
 
@@ -75,16 +75,15 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.buttons["打开侧栏"].tap()
         let drawer = app.descendants(matching: .any)["navigation-drawer"]
         XCTAssertTrue(drawer.waitForExistence(timeout: 3))
-        let sideChat = drawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).firstMatch
-        XCTAssertTrue(sideChat.waitForExistence(timeout: 3))
-        XCTAssertEqual(sideChat.value as? String, "当前对话")
+        XCTAssertTrue(drawer.staticTexts["你发起的旁聊会显示在这里。"].exists)
+        XCTAssertEqual(drawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).count, 0)
 
         app.buttons["open-primary-chat"].tap()
         XCTAssertTrue(drawer.waitForNonExistence(timeout: 3))
         app.buttons["打开侧栏"].tap()
         let reopenedDrawer = app.descendants(matching: .any)["navigation-drawer"]
         XCTAssertTrue(reopenedDrawer.waitForExistence(timeout: 3))
-        XCTAssertEqual(reopenedDrawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).firstMatch.value as? String, "未选中")
+        XCTAssertEqual(reopenedDrawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).count, 0)
         XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 0)
     }
 
@@ -111,8 +110,11 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.buttons["打开侧栏"].tap()
         let reopenedDrawer = app.descendants(matching: .any)["navigation-drawer"]
         XCTAssertTrue(reopenedDrawer.waitForExistence(timeout: 3))
-        XCTAssertTrue(reopenedDrawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).firstMatch.exists)
+        XCTAssertTrue(reopenedDrawer.staticTexts["你发起的旁聊会显示在这里。"].exists)
+        XCTAssertEqual(reopenedDrawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).count, 0)
         app.buttons["open-primary-chat"].tap()
+        XCTAssertTrue(app.buttons["我的"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["OpenMuse，查看活动、设备与身份"].exists)
         XCTAssertFalse(app.buttons["点子"].exists)
     }
 
@@ -124,8 +126,8 @@ final class OpenMuseNavigationUITests: XCTestCase {
             "-openmuse-ui-seed-friendly-reply-status"
         ]
         app.launch()
-        XCTAssertTrue(app.buttons["OpenMuse，查看活动、设备与身份"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        XCTAssertTrue(app.buttons["我的"].waitForExistence(timeout: 10))
+        app.buttons["我的"].tap()
 
         let status = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "已回复，聊天记录已保存。")).firstMatch
         XCTAssertTrue(status.waitForExistence(timeout: 3))
@@ -160,8 +162,8 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app = XCUIApplication()
         app.launchArguments = ["-openmuse-ui-test-workspace", UUID().uuidString]
         app.launch()
-        XCTAssertTrue(app.buttons["OpenMuse，查看活动、设备与身份"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        XCTAssertTrue(app.buttons["我的"].waitForExistence(timeout: 10))
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
 
         let automaticReview = app.switches["dreaming-review-auto-toggle"]
@@ -234,7 +236,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["活动"].tap()
         let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "活动详情测试")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 5))
@@ -279,7 +281,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         }
 
         app.buttons["聊天"].tap()
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         let companionClose = app.buttons["关闭陪伴者面板"]
         XCTAssertTrue(companionClose.waitForExistence(timeout: 3))
         XCTAssertLessThan(companionClose.frame.minY, 85, "The companion controls should sit near the top safe area, as in the Muse reference.")
@@ -348,7 +350,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
 #endif
 
     func testMemoryImportShowsTheBundledPromptAndPasteArea() {
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
         for _ in 0..<3 where !app.buttons["从其他 AI 导入记忆"].exists {
             app.swipeUp()
@@ -373,7 +375,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
         let validity = app.staticTexts["memory-validity-ui-memory-validity"]
         for _ in 0..<5 where !validity.exists { app.swipeUp() }
@@ -525,7 +527,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
 
         let habit = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "保持轻松自然，像一起商量")).firstMatch
@@ -549,7 +551,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
 
         let proposalTitle = app.staticTexts["旅行节奏偏好"]
@@ -575,7 +577,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
 
         let proposalTitle = app.staticTexts["先挑两处备选景点"]
@@ -601,7 +603,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
-        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+        app.buttons["我的"].tap()
         app.buttons["身份"].tap()
 
         let proposalTitle = app.staticTexts["旅行节奏偏好可能变化"]

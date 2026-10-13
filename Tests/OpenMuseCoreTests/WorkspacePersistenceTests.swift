@@ -2135,7 +2135,7 @@ final class WorkspacePersistenceTests: XCTestCase {
     }
 
     @MainActor
-    func testSideConversationKeepsItsParentAndEachConversationDraft() throws {
+    func testUnsentSideConversationIsOnlyATemporaryDraft() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseConversations-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let workspace = directory.appendingPathComponent("workspace", isDirectory: true)
@@ -2151,14 +2151,15 @@ final class WorkspacePersistenceTests: XCTestCase {
         model.beginSideConversation()
         let sideConversationID = model.currentConversationID
         model.draft = "旁聊里未发送的草稿"
+        let database = try SQLiteStore(path: directory.appendingPathComponent("OpenMuse.sqlite"))
 
         XCTAssertNotEqual(sideConversationID, mainConversationID)
-        XCTAssertEqual(model.conversations.first(where: { $0.id == sideConversationID })?.parentConversationID, mainConversationID)
+        XCTAssertFalse(model.conversations.contains(where: { $0.id == sideConversationID }))
+        XCTAssertFalse(try database.load(ConversationRecord.self, kind: RecordKind.conversation).contains(where: { $0.id == sideConversationID }))
 
         model.openConversation(mainConversationID)
         XCTAssertEqual(model.draft, "主聊里未发送的草稿")
-        model.openConversation(sideConversationID)
-        XCTAssertEqual(model.draft, "旁聊里未发送的草稿")
+        XCTAssertFalse(model.conversations.contains(where: { $0.id == sideConversationID }))
 
         let reopened = OpenMuseAppModel(
             runtimeOverride: nil,
@@ -2166,7 +2167,65 @@ final class WorkspacePersistenceTests: XCTestCase {
             configurationOverride: ModelConfiguration(),
             startMacBridge: false
         )
-        XCTAssertEqual(reopened.conversations.first(where: { $0.id == sideConversationID })?.parentConversationID, mainConversationID)
+        XCTAssertFalse(reopened.conversations.contains(where: { $0.id == sideConversationID }))
+    }
+
+    @MainActor
+    func testPersistedSideConversationRetainsDraftAfterItsFirstMessage() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMusePersistedSideConversationDraft-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://side-draft-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-side-draft-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+        let model = OpenMuseAppModel(
+            runtimeOverride: AttachmentCaptureRuntime(recorder: TranscriptRecorder()),
+            workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        let parentID = model.currentConversationID
+        model.beginSideConversation(parentConversationID: parentID)
+        let sideID = model.currentConversationID
+        await model.send("先把这次旁聊保存下来。")
+        model.draft = "已创建的旁聊草稿仍要保留。"
+
+        model.openConversation(parentID)
+        model.openConversation(sideID)
+
+        XCTAssertEqual(model.draft, "已创建的旁聊草稿仍要保留。")
+        XCTAssertEqual(model.conversations.first(where: { $0.id == sideID })?.parentConversationID, parentID)
+    }
+
+    @MainActor
+    func testSideConversationIsSavedAtomicallyWithItsFirstMessage() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseSideConversationFirstMessage-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://side-first-message-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-side-first-message-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+        let recorder = TranscriptRecorder()
+        let workspace = directory.appendingPathComponent("workspace", isDirectory: true)
+        let model = OpenMuseAppModel(
+            runtimeOverride: AttachmentCaptureRuntime(recorder: recorder),
+            workspaceRootOverride: workspace,
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+        let parentID = model.currentConversationID
+        model.beginSideConversation(parentConversationID: parentID)
+        let sideID = model.currentConversationID
+        let database = try SQLiteStore(path: directory.appendingPathComponent("OpenMuse.sqlite"))
+
+        XCTAssertFalse(try database.load(ConversationRecord.self, kind: RecordKind.conversation).contains(where: { $0.id == sideID }))
+        await model.send("帮我比较两处适合慢慢逛的地方。")
+
+        let persisted = try XCTUnwrap(database.load(ConversationRecord.self, kind: RecordKind.conversation).first(where: { $0.id == sideID }))
+        XCTAssertEqual(persisted.parentConversationID, parentID)
+        XCTAssertEqual(persisted.title, "帮我比较两处适合慢慢逛的地方。")
+        XCTAssertTrue(model.conversations.contains(where: { $0.id == sideID }))
+        XCTAssertTrue(try database.load(MessageRecord.self, kind: RecordKind.message).contains(where: {
+            $0.conversationID == sideID && $0.role == .user && $0.content == "帮我比较两处适合慢慢逛的地方。"
+        }))
     }
 
     @MainActor
