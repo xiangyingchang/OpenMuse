@@ -35,6 +35,13 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.buttons["我的"].tap()
         XCTAssertTrue(app.buttons["活动"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["还没有活动"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["关闭陪伴者面板"].exists, "The My page is a normal tab, not a dismissible sheet.")
+        XCTAssertFalse(app.buttons["分享 OpenMuse"].exists, "Sheet-only actions should not appear on the My tab page.")
+
+        app.buttons["动态"].tap()
+        XCTAssertTrue(app.staticTexts["还没有新的动态"].waitForExistence(timeout: 3))
+        app.buttons["我的"].tap()
+        XCTAssertTrue(app.buttons["活动"].waitForExistence(timeout: 3))
 
         app.buttons["批准"].tap()
         XCTAssertTrue(app.staticTexts["没有待处理的批准"].waitForExistence(timeout: 3))
@@ -54,8 +61,41 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["明确告诉 OpenMuse“记住……”或表达稳定偏好后，记忆会列在这里。外部资料和推断不会自动写成事实。"].exists)
         XCTAssertTrue(app.staticTexts["SOUL.md"].exists)
 
-        app.buttons["关闭陪伴者面板"].tap()
+        app.buttons["聊天"].tap()
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 3))
+    }
+
+    func testSideChatCanBeDeletedFromTheDrawer() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-openmuse-ui-test-workspace", UUID().uuidString,
+            "-openmuse-ui-seed-side-chat-deletion"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
+
+        app.buttons["打开侧栏"].tap()
+        let row = app.buttons["conversation-row-ui-side-chat-delete"]
+        XCTAssertTrue(row.waitForExistence(timeout: 3))
+        let actions = app.buttons["delete-side-conversation-ui-side-chat-delete"]
+        XCTAssertTrue(actions.exists)
+        actions.tap()
+        app.buttons["删除旁聊"].tap()
+        XCTAssertTrue(app.buttons["删除旁聊"].waitForExistence(timeout: 3))
+        app.buttons["删除旁聊"].tap()
+
+        XCTAssertTrue(row.waitForNonExistence(timeout: 5))
+        app.buttons["关闭侧栏"].tap()
+    }
+
+    func testChatHeaderControlsRespectTheTopSafeArea() {
+        let sidebar = app.buttons["打开侧栏"]
+        let more = app.buttons["更多操作"]
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 3))
+        XCTAssertTrue(more.exists)
+        XCTAssertGreaterThanOrEqual(sidebar.frame.minY, 68, "The header controls should sit below the status bar and lower than the previous placement.")
+        XCTAssertEqual(sidebar.frame.midY, more.frame.midY, accuracy: 1.5, "The two top controls should remain aligned.")
     }
 
     func testMainChatIsThePrimaryTabAndOnlySideChatsAppearBelowIt() {

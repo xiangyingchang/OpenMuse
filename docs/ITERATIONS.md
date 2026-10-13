@@ -797,3 +797,11 @@
 - Dreaming 与记忆：设置按说明、手动回顾、自动开关、计划预算和回顾记录分组；自动关闭时隐藏细项，历史记录折叠，时段使用定宽 `HH:00`，预算标签和值分开。身份页改为“当前记忆”，说明活跃 claim 列表包含过期/未生效项供调整并展示有效期；`MEMORY.md` 自动维护区只投影当前有效记录，`USER.md` 是当前用户画像，`GLOBAL.md` 是主题索引。它们是同一结构化真值的不同视图；更正写回同一记录，外部导入和推断先确认，修订保留来源。
 - 验证：`swift test --scratch-path .build/core-test-final --filter ConversationContinuityTests` 执行3项、3通过，覆盖旧根会话、附件和关联数据迁移、旁聊与导入隔离、迟到同步归并、活动标题回填边界和标题截断。iPhone 17 Pro / iOS 26.5 Simulator 上目标 UI 用例分别通过：侧栏主聊/旁聊用例1/1，Dreaming 布局用例1/1；后一结果包 `.build/openmuse-t80-ui/Logs/Test/Test-OpenMuseiOS-2026.10.12_19-51-46-+0800.xcresult`。最终源码合并重跑时，模拟器在测试 runner 启动前卡黑屏；新模拟器重试停在 runner 调度阶段，均未作为通过结果。`git diff --check` 通过。
 - Release：iOS ARM64 Release Archive 和 Personal Team 开发签名 IPA 导出成功，bundle `org.openmuse.ios`，版本 `0.1.0 (8)`；`codesign --verify --deep --strict` 通过，二进制确认 arm64。最新 IPA `.build/OpenMuse-T80-iOS-Release-final2/OpenMuse.ipa`，SHA-256 `7381c2b2dc3ec7ce3965c08f8581a348ac38576adf7f40823920c3817d1aa8f3`，大小9.6 MB；iOS Team Provisioning Profile 有2台设备名额、于2026-10-18到期。Archive/export 日志在 `.build/logs/openmuse-t80-ios-release-final2.log`、`.build/logs/openmuse-t80-ios-release-export-final3.log`。本轮未安装真机，未用用户实际 SQLite 执行迁移，也未复测模型请求；这些 UI/Core 结果不能代替安装后验收。完整需求仍以 PRD 和 [一期对照表](PHASE1_PARITY.md) 为准。
+
+## T86：2026-10-13 顶部按钮、旁聊删除与“我的”页面切换
+
+- 需求与依据：用户指出聊天页两侧按钮离屏幕顶部太近、旁聊不能删除、“我的”从底部上拉而与其他 Tab 不一致。按已读的 Apple Design Skill 和 Muse 本地聊天/侧栏截图检查布局；截图只作可见交互参考，没有复制私人原图或声称复现 Muse 内部实现。
+- 变更：左右顶栏操作的垂直 offset 从 `-23pt` 调整到 `-10pt`（下移13pt），保持两端对齐，顶栏仍透明、圆形按钮保留半透明材质。“我的”改用普通底栏 Tab 页面，保留活动、批准、桌面端、近期和身份子页，切换到其他 Tab 时直接离开页面。已保存旁聊在侧栏行尾新增更多菜单和二次确认；导入聊天不提供该操作。
+- 删除语义：事务性删除旁聊、消息及仅由该旁聊引用的附件文件，并为同步记录写入删除墓碑；有配对 Mac 时触发同步。运行中的发送、任务或来源回顾会阻止删除。嵌套旁聊、目标、构件、活动和执行记录保留并转到上一级聊天；目标/构件的源消息引用被清理，已确认记忆继续保留。附件仍被其他消息引用时不删除文件。墓碑批次上限从500提升至10,000条，避免约250轮聊天后无法删除的旧限制。
+- 验证：`swift test` 执行277项、2项条件跳过、0失败；新增删除测试覆盖消息/附件墓碑、附件文件清理、目标/构件/活动/执行/记忆保留、活动运行时阻止删除，以及501条消息的长旁聊原子删除。日志 `.build/logs/openmuse-t86-core-tests-final.log`。iPhone 17 Pro Max / iOS 26.5 模拟器通过3项 UI 用例：我的页面普通 Tab 往返、侧栏二次确认删除旁聊、顶部按钮 y≥68pt 且左右对齐；结果 `.build/OpenMuse-T86-Navigation-UI-Verified.xcresult`，日志 `.build/logs/openmuse-t86-ui-tests-verified.log`。macOS `OpenMuseMac` Debug 构建通过，日志 `.build/logs/openmuse-t86-mac-debug-build.log`。定向删除测试日志 `.build/logs/openmuse-t86-deletion-core-tests.log`。
+- 限制：本轮只做模拟器 UI 验收，不是 iPhone 真机安装；未连接配对 Mac 实测墓碑网络同步，也未生成 Release IPA。核心和界面回归不覆盖真实设备屏幕差异。提交与推送结果在本条后续更新。

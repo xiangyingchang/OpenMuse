@@ -146,6 +146,7 @@ public final class OpenMuseAppModel: ObservableObject {
         var uiTestSeedToolApproval = false
         var uiTestSeedActivityOperation = false
         var uiTestSeedFriendlyReplyStatus = false
+        var uiTestSeedSideChatDeletion = false
         #if DEBUG
         if let index = launchArguments.firstIndex(of: "-openmuse-ui-test-workspace"),
            launchArguments.indices.contains(index + 1),
@@ -161,6 +162,7 @@ public final class OpenMuseAppModel: ObservableObject {
         uiTestSeedToolApproval = launchArguments.contains("-openmuse-ui-seed-tool-approval")
         uiTestSeedActivityOperation = launchArguments.contains("-openmuse-ui-seed-activity-operation")
         uiTestSeedFriendlyReplyStatus = launchArguments.contains("-openmuse-ui-seed-friendly-reply-status")
+        uiTestSeedSideChatDeletion = launchArguments.contains("-openmuse-ui-seed-side-chat-deletion")
         #endif
         permitsAutomaticMaintenance = runtimeOverride == nil && uiTestWorkspaceID == nil
         macBridgeAddress = UserDefaults.standard.string(forKey: "openmuse.bridge.address") ?? ""
@@ -259,6 +261,21 @@ public final class OpenMuseAppModel: ObservableObject {
                 try database.save(source, kind: RecordKind.message, id: source.id)
                 try database.save(goal, kind: RecordKind.goal, id: goal.id, revision: 1, appendRevision: true)
                 try database.save(event, kind: RecordKind.goalProgressEvent, id: event.id)
+            }
+            if uiTestSeedSideChatDeletion,
+               try database.load(ConversationRecord.self, kind: RecordKind.conversation).allSatisfy({ $0.id != "ui-side-chat-delete" }) {
+                let side = ConversationRecord(
+                    id: "ui-side-chat-delete", title: "可删除的旁聊", parentConversationID: loadedConversation.id
+                )
+                let userMessage = MessageRecord(
+                    id: "ui-side-chat-delete-user", conversationID: side.id, role: .user, content: "测试旁聊删除。"
+                )
+                let assistantMessage = MessageRecord(
+                    id: "ui-side-chat-delete-assistant", conversationID: side.id, role: .assistant, content: "这条消息用于验证删除。"
+                )
+                try database.save(side, kind: RecordKind.conversation, id: side.id)
+                try database.save(userMessage, kind: RecordKind.message, id: userMessage.id)
+                try database.save(assistantMessage, kind: RecordKind.message, id: assistantMessage.id)
             }
             if uiTestSeedPersonaRevision,
                try database.load(PersonaRevisionRecord.self, kind: RecordKind.personaRevision).allSatisfy({ $0.sourceMessageID != "ui-persona-source" }) {
@@ -363,7 +380,8 @@ public final class OpenMuseAppModel: ObservableObject {
                 try database.save(proposal, kind: RecordKind.maintenanceProposal, id: proposal.id, appendRevision: true)
             }
             #endif
-            conversations = (storedConversations.isEmpty ? [loadedConversation] : storedConversations)
+            let currentConversations = try database.load(ConversationRecord.self, kind: RecordKind.conversation)
+            conversations = (currentConversations.isEmpty ? [loadedConversation] : currentConversations)
                 .sorted { $0.updatedAt > $1.updatedAt }
             #if DEBUG
             if launchArguments.contains("-openmuse-ui-seed-artifact-chronology"),
@@ -1274,6 +1292,164 @@ public final class OpenMuseAppModel: ObservableObject {
         presentedArtifact = nil
         selectedSection = .chat
         presentedSheet = nil
+    }
+
+    @discardableResult
+    public func deleteSideConversation(id: String) -> Bool {
+        guard !isSending else {
+            statusText = "等当前回复结束后，再删除这条旁聊。"
+            return false
+        }
+        guard let database else {
+            statusText = "本地资料库暂不可用，旁聊没有删除。"
+            return false
+        }
+
+        do {
+            let storedConversations = try database.load(ConversationRecord.self, kind: RecordKind.conversation)
+            guard let target = storedConversations.first(where: { $0.id == id && $0.isArchived != true }),
+                  target.parentConversationID != nil, target.isPrimary != true,
+                  target.importedFrom == nil, target.importedSourceID == nil else {
+                statusText = "只能删除已保存的旁聊。"
+                return false
+            }
+            let destination = storedConversations.first(where: {
+                $0.id == target.parentConversationID && $0.id != id && $0.isArchived != true
+            }) ?? storedConversations.first(where: { $0.isPrimary == true && $0.id != id && $0.isArchived != true })
+            guard let destination else {
+                statusText = "找不到可以接续这条旁聊的主聊天，暂时没有删除。"
+                return false
+            }
+
+            let allMessages = try database.load(MessageRecord.self, kind: RecordKind.message)
+            let removedMessages = allMessages.filter { $0.conversationID == id }
+            let removedMessageIDs = Set(removedMessages.map(\.id))
+            let outsideMessages = allMessages.filter { $0.conversationID != id }
+            let allAttachments = try database.load(AttachmentRecord.self, kind: RecordKind.attachment)
+            let attachmentIDs = Set(removedMessages.flatMap { $0.attachmentIDs ?? [] })
+            let candidateAttachments = allAttachments.filter { $0.conversationID == id || attachmentIDs.contains($0.id) }
+
+            let storedActivities = try database.load(ActivityRecord.self, kind: RecordKind.task)
+            let relatedActivities = storedActivities.filter { $0.conversationID == id }
+            let activeActivity = relatedActivities.contains { ["running", "waiting_approval"].contains($0.status) }
+            let storedExecutionTasks = try database.load(TaskExecutionRecord.self, kind: RecordKind.executionTask)
+            let relatedExecutionTasks = storedExecutionTasks.filter { $0.conversationID == id }
+            let activeExecution = relatedExecutionTasks.contains {
+                !["completed", "failed", "cancelled"].contains($0.status)
+            }
+            let hasActiveReview = try database.load(MaintenanceRunRecord.self, kind: RecordKind.maintenanceRun).contains {
+                $0.status == "running" && !Set($0.sourceMessageIDs).isDisjoint(with: removedMessageIDs)
+            }
+            guard !activeActivity, !activeExecution, !hasActiveReview else {
+                statusText = "这条旁聊还有任务或记忆整理正在进行，完成或停止后再删除。"
+                return false
+            }
+
+            var writes: [SQLiteStoreWrite] = []
+            let childConversations = storedConversations.filter { $0.parentConversationID == id }
+            for var child in childConversations {
+                child.parentConversationID = destination.id
+                child.updatedAt = .now
+                writes.append(try database.prepareWrite(child, kind: RecordKind.conversation, id: child.id, appendRevision: true))
+            }
+
+            var deletedAttachmentRecords: [AttachmentRecord] = []
+            for var attachment in candidateAttachments {
+                if let survivingMessage = outsideMessages.first(where: { ($0.attachmentIDs ?? []).contains(attachment.id) }) {
+                    attachment.conversationID = survivingMessage.conversationID
+                    attachment.messageID = survivingMessage.id
+                    writes.append(try database.prepareWrite(attachment, kind: RecordKind.attachment, id: attachment.id, appendRevision: true))
+                } else {
+                    deletedAttachmentRecords.append(attachment)
+                }
+            }
+
+            for var goal in try database.load(GoalRecord.self, kind: RecordKind.goal) where goal.conversationID == id {
+                goal.conversationID = destination.id
+                if goal.sourceMessageID.map(removedMessageIDs.contains) == true {
+                    goal.sourceMessageID = nil
+                    goal.sourceText = nil
+                }
+                goal.updatedAt = .now
+                writes.append(try database.prepareWrite(goal, kind: RecordKind.goal, id: goal.id, appendRevision: true))
+            }
+
+            for var artifact in try database.load(ArtifactRecord.self, kind: RecordKind.artifact) where artifact.conversationID == id {
+                artifact.conversationID = destination.id
+                artifact.sourceMessageIDs = Self.remainingMessageIDs(artifact.sourceMessageIDs, excluding: removedMessageIDs)
+                if let variants = artifact.travelPlanVariants {
+                    artifact.travelPlanVariants = variants.map { variant in
+                        var updated = variant
+                        updated.sourceMessageIDs = Self.remainingMessageIDs(variant.sourceMessageIDs, excluding: removedMessageIDs)
+                        return updated
+                    }
+                }
+                artifact.currentRevision += 1
+                artifact.updatedAt = .now
+                writes.append(try database.prepareWrite(artifact, kind: RecordKind.artifact, id: artifact.id, revision: artifact.currentRevision, appendRevision: true))
+            }
+
+            for var activity in relatedActivities {
+                activity.conversationID = destination.id
+                if activity.sourceMessageID.map(removedMessageIDs.contains) == true { activity.sourceMessageID = nil }
+                activity.updatedAt = .now
+                writes.append(try database.prepareWrite(activity, kind: RecordKind.task, id: activity.id, appendRevision: true))
+            }
+
+            for var task in relatedExecutionTasks {
+                task.conversationID = destination.id
+                task.updatedAt = .now
+                writes.append(try database.prepareWrite(task, kind: RecordKind.executionTask, id: task.id, appendRevision: true))
+            }
+
+            var recordsToForget: [(kind: String, id: String)] = [
+                (RecordKind.conversation, id)
+            ]
+            recordsToForget += removedMessages.map { (RecordKind.message, $0.id) }
+            recordsToForget += deletedAttachmentRecords.map { (RecordKind.attachment, $0.id) }
+            guard recordsToForget.count <= 10_000, writes.count <= 500 else {
+                statusText = "这条旁聊关联的记录较多，暂时无法一次性安全删除。"
+                return false
+            }
+
+            _ = try database.forgetRecords(recordsToForget, andSaving: writes)
+            var attachmentCleanupFailed = false
+            for attachment in deletedAttachmentRecords {
+                guard let attachmentStore else {
+                    attachmentCleanupFailed = true
+                    continue
+                }
+                do { try attachmentStore.remove(id: attachment.id) }
+                catch { attachmentCleanupFailed = true }
+            }
+
+            draftsByConversation.removeValue(forKey: id)
+            if conversation.id == id {
+                conversation = destination
+                draft = draftsByConversation[destination.id] ?? ""
+                pendingAttachments.removeAll()
+            } else if conversation.parentConversationID == id {
+                conversation.parentConversationID = destination.id
+                conversation.updatedAt = .now
+            }
+            try reloadWorkspaceState(database: database)
+            statusText = attachmentCleanupFailed
+                ? "旁聊已删除；有附件文件暂时无法清理，重开工作区时会再检查。活动、目标、成果和已确认记忆仍保留。"
+                : "旁聊和附件已删除；活动、目标、成果和已确认记忆仍保留。"
+            #if os(iOS)
+            if macBridgePaired { Task { await syncWithMac() } }
+            #endif
+            return true
+        } catch {
+            statusText = "旁聊没有删除：\(error.localizedDescription)"
+            return false
+        }
+    }
+
+    private static func remainingMessageIDs(_ values: [String]?, excluding removedIDs: Set<String>) -> [String]? {
+        guard let values else { return nil }
+        let remaining = values.filter { !removedIDs.contains($0) }
+        return remaining.isEmpty ? nil : remaining
     }
 
     public func openModelSettings() {

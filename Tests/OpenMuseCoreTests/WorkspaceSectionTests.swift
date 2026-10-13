@@ -7,5 +7,6 @@ final class WorkspaceSectionTests: XCTestCase {
         XCTAssertFalse(WorkspaceSection.navigationSections.contains(.ideas))
         XCTAssertEqual(WorkspaceSection.drawerSections, [.chat])
         XCTAssertEqual(WorkspaceSection.navigationSections, [.chat, .feed, .goals, .library])
+        XCTAssertEqual(WorkspaceSection.phoneNavigationSections, [.chat, .feed, .goals, .library, .companion])
     }
 }

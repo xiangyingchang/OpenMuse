@@ -567,7 +567,7 @@ public final class SQLiteStore {
         pruningHistoryFor prunedRecords: [(kind: String, id: String)] = [],
         deletedAt: Date = .now
     ) throws -> [DeletionTombstoneRecord] {
-        guard !items.isEmpty, items.count <= 500,
+        guard !items.isEmpty, items.count <= 10_000,
               items.allSatisfy({ RecordKind.syncableKinds.contains($0.kind) && $0.kind != RecordKind.deletionTombstone && !$0.id.isEmpty && $0.id.count <= 200 }),
               writes.count <= 500, prunedRecords.count <= 500,
               writes.allSatisfy({ RecordKind.syncableKinds.contains($0.kind) && !$0.id.isEmpty && $0.id.count <= 200 }),

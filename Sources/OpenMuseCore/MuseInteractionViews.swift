@@ -16,6 +16,8 @@ struct NavigationDrawerView: View {
     @ObservedObject var model: OpenMuseAppModel
     let onClose: () -> Void
     @State private var query = ""
+    @State private var pendingDeleteConversation: ConversationRecord?
+    @State private var isDeleteConfirmationPresented = false
 
     private var visibleConversations: [ConversationRecord] {
         let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -113,8 +115,31 @@ struct NavigationDrawerView: View {
         }
         .background(OpenMusePalette.panel.ignoresSafeArea())
         .overlay(alignment: .trailing) { Rectangle().fill(OpenMusePalette.border).frame(width: 1) }
+        .confirmationDialog(
+            "删除这个旁聊？",
+            isPresented: $isDeleteConfirmationPresented,
+            titleVisibility: .visible
+        ) {
+            Button("删除旁聊", role: .destructive) {
+                if let pendingDeleteConversation {
+                    _ = model.deleteSideConversation(id: pendingDeleteConversation.id)
+                }
+                pendingDeleteConversation = nil
+            }
+            Button("取消", role: .cancel) { pendingDeleteConversation = nil }
+        } message: {
+            Text(deleteConfirmationMessage)
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("navigation-drawer")
+    }
+
+    private var deleteConfirmationMessage: String {
+        guard let pendingDeleteConversation else {
+            return "聊天记录和附件会删除；活动、目标、成果和已确认记忆会保留。"
+        }
+        let title = pendingDeleteConversation.title == "新对话" ? "这个旁聊" : "“\(pendingDeleteConversation.title)”"
+        return "\(title)的聊天记录和附件会删除；活动、目标、成果和已确认记忆会保留。"
     }
 
     @ViewBuilder
@@ -128,37 +153,58 @@ struct NavigationDrawerView: View {
                     .padding(.vertical, 6)
             } else {
                 ForEach(values) { conversation in
-                    Button {
-                        model.openConversation(conversation.id)
-                        onClose()
-                    } label: {
-                        HStack(spacing: 9) {
-                            Image(systemName: conversation.parentConversationID == nil ? "bubble.left" : "arrow.turn.down.right")
-                                .foregroundStyle(OpenMusePalette.subtle)
-                                .frame(width: 21)
-                            Text(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
-                                .font(.subheadline)
-                                .foregroundStyle(OpenMusePalette.text)
-                                .lineLimit(1)
-                                .accessibilityIdentifier("conversation-title-\(conversation.id)")
-                            if let importedFrom = conversation.importedFrom {
-                                Text(importedFrom)
-                                    .font(.caption2)
+                    HStack(spacing: 2) {
+                        Button {
+                            model.openConversation(conversation.id)
+                            onClose()
+                        } label: {
+                            HStack(spacing: 9) {
+                                Image(systemName: conversation.parentConversationID == nil ? "bubble.left" : "arrow.turn.down.right")
                                     .foregroundStyle(OpenMusePalette.subtle)
+                                    .frame(width: 21)
+                                Text(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
+                                    .font(.subheadline)
+                                    .foregroundStyle(OpenMusePalette.text)
+                                    .lineLimit(1)
+                                    .accessibilityIdentifier("conversation-title-\(conversation.id)")
+                                if let importedFrom = conversation.importedFrom {
+                                    Text(importedFrom)
+                                        .font(.caption2)
+                                        .foregroundStyle(OpenMusePalette.subtle)
+                                }
+                                Spacer(minLength: 0)
+                                if conversation.id == model.currentConversationID {
+                                    Circle().fill(OpenMusePalette.blue).frame(width: 7, height: 7)
+                                }
                             }
-                            Spacer(minLength: 0)
-                            if conversation.id == model.currentConversationID {
-                                Circle().fill(OpenMusePalette.blue).frame(width: 7, height: 7)
-                            }
+                            .padding(.leading, 10)
+                            .frame(height: 40)
+                            .contentShape(Rectangle())
                         }
-                        .padding(.horizontal, 10)
-                        .frame(height: 40)
-                        .contentShape(Rectangle())
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
+                        .accessibilityIdentifier("conversation-row-\(conversation.id)")
+                        .accessibilityValue(conversation.id == model.currentConversationID ? "当前对话" : "未选中")
+
+                        if conversation.parentConversationID != nil,
+                           conversation.importedFrom == nil,
+                           conversation.importedSourceID == nil {
+                            Menu {
+                                Button("删除旁聊", systemImage: "trash", role: .destructive) {
+                                    pendingDeleteConversation = conversation
+                                    isDeleteConfirmationPresented = true
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundStyle(OpenMusePalette.subtle)
+                                    .frame(width: 36, height: 40)
+                                    .contentShape(Rectangle())
+                            }
+                            .accessibilityLabel("旁聊操作：\(conversation.title)")
+                            .accessibilityIdentifier("delete-side-conversation-\(conversation.id)")
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(conversation.title == "新对话" && conversation.parentConversationID != nil ? "新旁聊" : conversation.title)
-                    .accessibilityIdentifier("conversation-row-\(conversation.id)")
-                    .accessibilityValue(conversation.id == model.currentConversationID ? "当前对话" : "未选中")
                 }
             }
         }
@@ -186,6 +232,7 @@ private enum CompanionPanelTab: String, CaseIterable, Identifiable {
 
 struct CompanionPanelView: View {
     @ObservedObject var model: OpenMuseAppModel
+    var showsSheetActions = true
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTab: CompanionPanelTab = .activity
 
@@ -274,30 +321,33 @@ struct CompanionPanelView: View {
             }
         }
         .background(OpenMusePalette.background.ignoresSafeArea())
+        .accessibilityIdentifier("companion-page")
         .overlay(alignment: .top) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(systemName: "xmark").frame(width: 40, height: 40)
-                        .background(OpenMusePalette.panel, in: Circle())
-                        .overlay(Circle().stroke(OpenMusePalette.border, lineWidth: 1))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
+            if showsSheetActions {
+                HStack {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark").frame(width: 40, height: 40)
+                            .background(OpenMusePalette.panel, in: Circle())
+                            .overlay(Circle().stroke(OpenMusePalette.border, lineWidth: 1))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("关闭陪伴者面板")
+                    Spacer()
+                    ShareLink(item: "OpenMuse") {
+                        Image(systemName: "square.and.arrow.up").frame(width: 40, height: 40)
+                            .background(OpenMusePalette.panel, in: Circle())
+                            .overlay(Circle().stroke(OpenMusePalette.border, lineWidth: 1))
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .accessibilityLabel("分享 OpenMuse")
                 }
-                .accessibilityLabel("关闭陪伴者面板")
-                Spacer()
-                ShareLink(item: "OpenMuse") {
-                    Image(systemName: "square.and.arrow.up").frame(width: 40, height: 40)
-                        .background(OpenMusePalette.panel, in: Circle())
-                        .overlay(Circle().stroke(OpenMusePalette.border, lineWidth: 1))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("分享 OpenMuse")
+                .font(.system(size: 17, weight: .medium))
+                .foregroundStyle(OpenMusePalette.text)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
-            .font(.system(size: 17, weight: .medium))
-            .foregroundStyle(OpenMusePalette.text)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
         }
         .onAppear {
             if !model.pendingToolApprovals.isEmpty { selectedTab = .approvals }

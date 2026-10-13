@@ -1351,10 +1351,12 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
     case ideas = "点子"
     case goals = "目标"
     case library = "资源库"
+    case companion = "我的"
 
     /// Ideas is intentionally paused in the product UI. Keep the case and its
     /// stored feedback for a later reactivation without exposing a dead tab.
     public static let navigationSections: [WorkspaceSection] = [.chat, .feed, .goals, .library]
+    public static let phoneNavigationSections: [WorkspaceSection] = [.chat, .feed, .goals, .library, .companion]
     public static let drawerSections: [WorkspaceSection] = [.chat]
 
     public var id: String { rawValue }
@@ -1366,6 +1368,7 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
         case .ideas: "open-ideas"
         case .goals: "open-goals"
         case .library: "open-library"
+        case .companion: "open-my-panel"
         }
     }
 
@@ -1376,6 +1379,7 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
         case .feed: "book.closed"
         case .ideas: "lightbulb"
         case .library: "square.grid.2x2"
+        case .companion: "person.crop.circle"
         }
     }
 }

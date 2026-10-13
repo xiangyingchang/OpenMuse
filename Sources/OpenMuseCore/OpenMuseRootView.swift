@@ -16,16 +16,10 @@ public struct OpenMuseRootView: View {
 
     private var topBarActionOffset: CGFloat {
         #if os(iOS)
-        return -23
+        return -10
         #else
         return 0
         #endif
-    }
-
-    private var isCompanionPanelPresented: Bool {
-        guard let sheet = model.presentedSheet else { return false }
-        if case .companion = sheet { return true }
-        return false
     }
 
     public var body: some View {
@@ -237,6 +231,7 @@ public struct OpenMuseRootView: View {
                 case .feed: FeedHomeView(model: model)
                 case .ideas: IdeasHomeView(model: model)
                 case .library: LibraryHomeView(model: model)
+                case .companion: CompanionPanelView(model: model, showsSheetActions: false)
                 }
             }
             .opacity(model.presentedArtifact == nil ? 1 : 0)
@@ -250,7 +245,7 @@ public struct OpenMuseRootView: View {
 
     private var phoneNavigation: some View {
         HStack(spacing: 4) {
-            ForEach(WorkspaceSection.navigationSections) { section in
+            ForEach(WorkspaceSection.phoneNavigationSections) { section in
                 Button {
                     model.presentedArtifact = nil
                     model.selectedSection = section
@@ -271,27 +266,8 @@ public struct OpenMuseRootView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(section.rawValue)
+                .accessibilityIdentifier(section.accessibilityIdentifier)
             }
-            Button {
-                model.presentedSheet = .companion
-            } label: {
-                Image(systemName: "person.crop.circle")
-                    .font(.system(size: 21, weight: .regular))
-                    .foregroundStyle(OpenMusePalette.text.opacity(isCompanionPanelPresented ? 1 : 0.82))
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background {
-                        if isCompanionPanelPresented {
-                            Capsule()
-                                .fill(Color.black.opacity(0.48))
-                                .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 0.7))
-                                .padding(.horizontal, -3)
-                        }
-                    }
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("我的")
-            .accessibilityIdentifier("open-my-panel")
         }
         .padding(6)
         .background {
