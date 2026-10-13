@@ -349,9 +349,20 @@ private struct ChatHomeView: View {
                             if model.messages.isEmpty {
                                 welcome.frame(minHeight: scrollGeometry.size.height, alignment: .center)
                             }
-                            ForEach(model.messages) { message in
-                                MessageBubble(message: message, model: model)
-                                    .id(message.id)
+                            ForEach(ChatTimeline.entries(
+                                messages: model.messages,
+                                artifactGroups: ArtifactPresentationGroup.make(
+                                    from: model.artifacts.filter { $0.conversationID == model.currentConversationID }
+                                )
+                            )) { entry in
+                                switch entry {
+                                case .message(let message):
+                                    MessageBubble(message: message, model: model)
+                                        .id(message.id)
+                                case .artifactGroup(let group):
+                                    ChatArtifactGroupCard(group: group, model: model)
+                                        .id("artifact-\(group.id)")
+                                }
                             }
                             if !model.liveResponse.isEmpty {
                                 MessageBubble(message: MessageRecord(
@@ -362,9 +373,6 @@ private struct ChatHomeView: View {
                                     status: "streaming"
                                 ), model: model)
                                 .id("live-response")
-                            }
-                            ForEach(ArtifactPresentationGroup.make(from: model.artifacts.filter { $0.conversationID == model.currentConversationID })) { group in
-                                ChatArtifactGroupCard(group: group, model: model)
                             }
                             if model.isSending && model.liveResponse.isEmpty {
                                 HStack(spacing: 9) {

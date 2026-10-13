@@ -1,5 +1,13 @@
 # 迭代记录
 
+## T83：2026-10-13 主聊构件卡按来源消息排序
+
+- 问题：用户第二次指出旅行计划草稿卡一直固定在主聊底部，哪怕后续已有新的聊天；要求先对方案确认后再改。本轮已按确认方案修复。
+- 根因与处理：聊天视图过去先绘制全部消息，再把所有构件卡统一追加到列表末尾。现在构件卡和消息使用同一时间线，按卡片来源消息放在最近一条来源消息之后；后续聊天自然显示在卡片之后。同名构件仍合并成一张呈现卡。没有来源消息可匹配的旧构件不会再占据主聊位置，仍能从资源库打开，底层数据不删除。
+- 验证：Core 时间线定向测试 4/4 通过；iPhone 17 Pro Max / iOS 26.5 Simulator 时间线 UI 回归 1/1 通过，检查顺序为“来源回复 → 构件卡 → 后续用户消息”。测试日志 `.build/logs/openmuse-t83-core-tests.log`、`.build/logs/openmuse-t83-artifact-timeline-ui-rerun.log`，UI 结果 `.build/OpenMuse-T83-ArtifactTimeline-UI2.xcresult`。`git diff --check` 通过。
+- Release：iOS ARM64 Archive 和 IPA 导出通过；包内 `codesign --verify --deep --strict` 通过，版本 `0.1.3 (12)`，Bundle ID `org.openmuse.ios`。个人开发签名的描述文件于 2026-10-18 到期；需在有效期内安装，之后需重新签名。IPA 位于 `.build/OpenMuse-T83-iOS-Release/export/OpenMuse.ipa`，SHA-256 `e82879250eb5bed7fd0a3dbbd3b1e6a2a77536379dde175f0291bb91cff4d944`。本轮未安装真机，模拟器 UI 通过不代表本机 iPhone 已更新。首次归档因 iSH 脚本找不到 LLD 失败；确认已有 iSH 构建计划和二进制均为 Ninja `no work to do` 后，用 `OPENMUSE_REUSE_CACHED_RUNTIME=1` 重试并成功，没有安装全局 LLVM。日志 `.build/logs/openmuse-t83-ios-release-archive-retry.log`、`.build/logs/openmuse-t83-ios-release-export.log`。
+- 发布边界：此处的 Release 包是本机可安装 IPA；本轮没有创建 GitHub Release，也没有提交或推送。
+
 ## T82：2026-10-13 主聊列表、同名成果、回复风格与 AlarmKit 对齐
 
 - 用户提出三个体验问题并补充要求闹钟实现重新对照 OpenMinis。Muse 本机侧栏截图已实际查看：“聊天”在上方选项卡，下面只列旁聊；没有单独“主聊”行。

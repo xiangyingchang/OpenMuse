@@ -360,6 +360,33 @@ public final class OpenMuseAppModel: ObservableObject {
             #endif
             conversations = (storedConversations.isEmpty ? [loadedConversation] : storedConversations)
                 .sorted { $0.updatedAt > $1.updatedAt }
+            #if DEBUG
+            if launchArguments.contains("-openmuse-ui-seed-artifact-chronology"),
+               try database.load(MessageRecord.self, kind: RecordKind.message).allSatisfy({ $0.id != "ui-artifact-followup-assistant" }) {
+                let base = Date(timeIntervalSince1970: 1_800_000_000)
+                let timelineMessages = [
+                    MessageRecord(
+                        id: "ui-artifact-trip-user", conversationID: loadedConversation.id, role: .user,
+                        content: "帮我规划一趟轻松的旅行。", createdAt: base
+                    ),
+                    MessageRecord(
+                        id: "ui-artifact-trip-assistant", conversationID: loadedConversation.id, role: .assistant,
+                        content: "我先整理了一份旅行计划草稿。", createdAt: base.addingTimeInterval(1)
+                    ),
+                    MessageRecord(
+                        id: "ui-artifact-followup-user", conversationID: loadedConversation.id, role: .user,
+                        content: "之后我又问了一个问题。", createdAt: base.addingTimeInterval(2)
+                    ),
+                    MessageRecord(
+                        id: "ui-artifact-followup-assistant", conversationID: loadedConversation.id, role: .assistant,
+                        content: "这是之后的新回答。", createdAt: base.addingTimeInterval(3)
+                    )
+                ]
+                for message in timelineMessages {
+                    try database.save(message, kind: RecordKind.message, id: message.id)
+                }
+            }
+            #endif
             let allMessages = try database.load(MessageRecord.self, kind: RecordKind.message)
             messages = ConversationContinuity.orderedMessages(allMessages.filter { $0.conversationID == loadedConversation.id })
             let loadedAttachments = try database.load(AttachmentRecord.self, kind: RecordKind.attachment)
@@ -423,6 +450,17 @@ public final class OpenMuseAppModel: ObservableObject {
                     coveredDayCount: 3,
                     travelPlanVariants: [sevenDayVariant, fiveDayVariant],
                     selectedTravelPlanVariantID: sevenDayVariant.id
+                )
+                try database.save(fixture, kind: RecordKind.artifact, id: fixture.id)
+                loadedArtifacts.insert(fixture, at: 0)
+            }
+            if launchArguments.contains("-openmuse-ui-seed-artifact-chronology"),
+               !loadedArtifacts.contains(where: { $0.id == "ui-artifact-chronology" }) {
+                let fixture = ArtifactRecord(
+                    id: "ui-artifact-chronology", title: "旅行计划草稿", conversationID: loadedConversation.id,
+                    goalID: nil, content: "## 第一天\n抵达后休息。", status: "draft",
+                    sourceMessageIDs: ["ui-artifact-trip-user", "ui-artifact-trip-assistant"],
+                    updatedAt: Date(timeIntervalSince1970: 1_800_000_001)
                 )
                 try database.save(fixture, kind: RecordKind.artifact, id: fixture.id)
                 loadedArtifacts.insert(fixture, at: 0)

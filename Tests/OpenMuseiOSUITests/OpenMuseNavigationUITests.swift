@@ -82,6 +82,27 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 0)
     }
 
+    func testTravelArtifactStaysBetweenItsSourceReplyAndLaterChat() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-openmuse-ui-test-workspace", UUID().uuidString,
+            "-openmuse-ui-seed-artifact-chronology"
+        ]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
+        let sourceReply = app.staticTexts["我先整理了一份旅行计划草稿。"]
+        let artifact = app.buttons["artifact-group-ui-artifact-chronology"]
+        let laterMessage = app.staticTexts["之后我又问了一个问题。"]
+        XCTAssertTrue(sourceReply.waitForExistence(timeout: 5))
+        XCTAssertTrue(artifact.waitForExistence(timeout: 5))
+        XCTAssertTrue(laterMessage.waitForExistence(timeout: 5))
+
+        XCTAssertLessThan(sourceReply.frame.maxY, artifact.frame.minY)
+        XCTAssertLessThan(artifact.frame.maxY, laterMessage.frame.minY)
+    }
+
     func testDreamingPlanControlsStayReadableWhenEnabled() {
         app.terminate()
         app = XCUIApplication()
