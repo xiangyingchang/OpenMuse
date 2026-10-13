@@ -28,7 +28,7 @@ public struct OpenMuseRootView: View {
         macLayout
         #else
         GeometryReader { geometry in
-            let drawerWidth = min(geometry.size.width * 0.82, 360)
+            let drawerWidth = min(geometry.size.width * 0.76, 340)
             ZStack(alignment: .leading) {
                 phoneLayout
                     .scaleEffect(isDrawerOpen ? 0.96 : 1, anchor: .leading)
@@ -127,7 +127,7 @@ public struct OpenMuseRootView: View {
                 .buttonStyle(.bordered)
                 .padding(.horizontal, 10)
                 List(selection: $model.selectedSection) {
-                    ForEach(WorkspaceSection.allCases) { section in
+                    ForEach(WorkspaceSection.navigationSections) { section in
                         Label(section.rawValue, systemImage: section.symbol).tag(section)
                     }
                 }
@@ -276,7 +276,7 @@ public struct OpenMuseRootView: View {
 
     private var phoneNavigation: some View {
         HStack(spacing: 4) {
-            ForEach(WorkspaceSection.allCases) { section in
+            ForEach(WorkspaceSection.navigationSections) { section in
                 Button {
                     model.presentedArtifact = nil
                     model.selectedSection = section

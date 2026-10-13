@@ -1,5 +1,13 @@
 # 迭代记录
 
+## T84：2026-10-13 收窄侧栏、暂停点子并优化活动状态文案
+
+- 用户反馈：左侧抽屉过宽，重复展示动态/点子/目标/资源库入口；点子暂时不需要；活动里的“已由 iPhone 的模型回复；对话副本保存在本机。”太技术化。对照 Muse 本地侧栏截图后，iOS 抽屉从屏宽约 82% 收窄到 76%（最大 340pt）；抽屉只保留“聊天”主聊入口和对话列表，底栏保留动态/目标/资源库并暂停点子入口。点子页面、枚举与反馈记录保留，后续可以恢复；没有删除数据。iPhone 和 Mac 的正常回复都显示“已回复，聊天记录已保存。”，Mac 不可用时说明手机已继续处理。
+- 需求记录：D48、PRD 第25节与讨论 T84 已更新；构建号由 12 增至 13，营销版本仍为 0.1.3。
+- 验证：Core 导航定向测试 1/1 通过，日志 `.build/logs/openmuse-t84-core-tests.log`；iOS Simulator 抽屉/主聊/旁聊/点子/伴侣面板 UI 测试 4/4 通过，结果 `.build/OpenMuse-T84-Navigation-UI2.xcresult`，日志 `.build/logs/openmuse-t84-navigation-ui-tests2.log`；移除测试专用状态标识后，按实际显示文案的状态测试重新编译并通过 1/1，结果 `.build/OpenMuse-T84-Status-UI2.xcresult`，日志 `.build/logs/openmuse-t84-status-ui2.log`。一次更早的增量测试运行仍使用旧测试二进制并失败，已以重新编译后的通过结果替代。Mac Debug 构建通过，日志 `.build/logs/openmuse-t84-mac-debug-build.log`；`git diff --check` 通过。
+- Release：iOS ARM64 Archive/IPA 导出成功；`codesign --verify --deep --strict` 通过，Bundle ID `org.openmuse.ios`，版本 `0.1.3 (13)`，签名 profile 到期时间为 2026-10-18 12:01 CST。IPA 位于 `.build/OpenMuse-T84-iOS-Release/export/OpenMuse.ipa`，SHA-256 `8f23ea6ccb95a6b4466a4eca5b06b353b77d06728862e3ecc03e190d9c6cd5b8`，大小 10,100,718 bytes；验证记录 `.build/logs/openmuse-t84-ios-release-archive.log`、`.build/logs/openmuse-t84-ios-release-export.log`。本轮没有安装到真机，也没有创建 GitHub Release；IPA 可在 profile 有效期内通过 Xcode/Apple Configurator 等方式安装。
+- 提交与推送：见本次提交记录；只推送公开的原创代码和脱敏文档。
+
 ## T83：2026-10-13 主聊构件卡按来源消息排序
 
 - 问题：用户第二次指出旅行计划草稿卡一直固定在主聊底部，哪怕后续已有新的聊天；要求先对方案确认后再改。本轮已按确认方案修复。

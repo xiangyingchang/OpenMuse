@@ -142,6 +142,7 @@ public final class OpenMuseAppModel: ObservableObject {
         var uiTestSeedMemoryValidity = false
         var uiTestSeedToolApproval = false
         var uiTestSeedActivityOperation = false
+        var uiTestSeedFriendlyReplyStatus = false
         #if DEBUG
         if let index = launchArguments.firstIndex(of: "-openmuse-ui-test-workspace"),
            launchArguments.indices.contains(index + 1),
@@ -156,6 +157,7 @@ public final class OpenMuseAppModel: ObservableObject {
         uiTestSeedMemoryValidity = launchArguments.contains("-openmuse-ui-seed-memory-validity")
         uiTestSeedToolApproval = launchArguments.contains("-openmuse-ui-seed-tool-approval")
         uiTestSeedActivityOperation = launchArguments.contains("-openmuse-ui-seed-activity-operation")
+        uiTestSeedFriendlyReplyStatus = launchArguments.contains("-openmuse-ui-seed-friendly-reply-status")
         #endif
         permitsAutomaticMaintenance = runtimeOverride == nil && uiTestWorkspaceID == nil
         macBridgeAddress = UserDefaults.standard.string(forKey: "openmuse.bridge.address") ?? ""
@@ -540,6 +542,9 @@ public final class OpenMuseAppModel: ObservableObject {
         workspaceURL = resolvedWorkspaceURL
         conversation = loadedConversation
         #if DEBUG
+        if uiTestWorkspaceID != nil, uiTestSeedFriendlyReplyStatus {
+            statusText = "已回复，聊天记录已保存。"
+        }
         if uiTestWorkspaceID != nil, uiTestSeedToolApproval {
             pendingToolApprovals = [ModelToolApprovalRequest(
                 id: "ui-tool-approval",
@@ -1840,7 +1845,7 @@ public final class OpenMuseAppModel: ObservableObject {
                         recordToolExecutionEvent(event, activityID: activityID)
                     }
                 }
-                return (response.answer, "已由家里的 Mac 通过 Pi 回复；对话副本保存在 iPhone。")
+                return (response.answer, "已回复，聊天记录已保存。")
             } catch let bridgeError as MacBridgeError {
                 guard !Task.isCancelled else { throw CancellationError() }
                 if taskHandedOff || (try? database?.load(TaskExecutionRecord.self, kind: RecordKind.executionTask).first(where: {
@@ -1853,11 +1858,11 @@ public final class OpenMuseAppModel: ObservableObject {
                 let answer = try await localModelReply(systemPrompt: systemPrompt, messages: messages, activityID: activityID)
                 switch bridgeError {
                 case .unavailable:
-                    return (answer, "Mac 暂时不可达，已改用 iPhone 的模型。")
-                case .rejected(let detail):
-                    return (answer, "Mac 没有完成这次请求（\(detail)），已改用 iPhone 的模型。")
+                    return (answer, "家里的电脑暂时没连上，我已在手机上继续回复。")
+                case .rejected(_):
+                    return (answer, "家里的电脑这次没能完成回复，我已在手机上继续处理。")
                 default:
-                    return (answer, "Mac 连接出了问题，已改用 iPhone 的模型。")
+                    return (answer, "家里的电脑连接中断了，我已在手机上继续回复。")
                 }
             } catch {
                 guard !Task.isCancelled else { throw CancellationError() }
@@ -1869,15 +1874,15 @@ public final class OpenMuseAppModel: ObservableObject {
                 }
                 guard isModelReady else { throw error }
                 let answer = try await localModelReply(systemPrompt: systemPrompt, messages: messages, activityID: activityID)
-                return (answer, "Mac 连接出了问题，已改用 iPhone 的模型。")
+                return (answer, "家里的电脑连接中断了，我已在手机上继续回复。")
             }
         }
         #endif
         let answer = try await localModelReply(systemPrompt: systemPrompt, messages: messages, activityID: activityID)
         #if os(iOS)
-        return (answer, "已由 iPhone 的模型回复；对话副本保存在本机。")
+        return (answer, "已回复，聊天记录已保存。")
         #else
-        return (answer, "已由这台 Mac 的 Pi 回复；对话和进度已保存在本机。")
+        return (answer, "已回复，聊天记录已保存。")
         #endif
     }
 

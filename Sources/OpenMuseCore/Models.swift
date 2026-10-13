@@ -1352,6 +1352,11 @@ public enum WorkspaceSection: String, CaseIterable, Identifiable {
     case goals = "目标"
     case library = "资源库"
 
+    /// Ideas is intentionally paused in the product UI. Keep the case and its
+    /// stored feedback for a later reactivation without exposing a dead tab.
+    public static let navigationSections: [WorkspaceSection] = [.chat, .feed, .goals, .library]
+    public static let drawerSections: [WorkspaceSection] = [.chat]
+
     public var id: String { rawValue }
 
     public var accessibilityIdentifier: String {

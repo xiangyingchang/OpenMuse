@@ -53,7 +53,7 @@ struct NavigationDrawerView: View {
                         HStack {
                             Text("选项卡").font(.caption.weight(.semibold)).foregroundStyle(OpenMusePalette.subtle)
                         }
-                        ForEach(WorkspaceSection.allCases) { section in
+                        ForEach(WorkspaceSection.drawerSections) { section in
                             Button {
                                 if section == .chat { model.beginNewConversation() }
                                 model.presentedArtifact = nil
@@ -113,6 +113,8 @@ struct NavigationDrawerView: View {
         }
         .background(OpenMusePalette.panel.ignoresSafeArea())
         .overlay(alignment: .trailing) { Rectangle().fill(OpenMusePalette.border).frame(width: 1) }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("navigation-drawer")
     }
 
     @ViewBuilder

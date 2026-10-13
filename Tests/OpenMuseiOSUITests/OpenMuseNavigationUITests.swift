@@ -13,7 +13,6 @@ final class OpenMuseNavigationUITests: XCTestCase {
     func testPrimarySectionsAndCompanionPanel() {
         let sections: [(String, String)] = [
             ("动态", "从你选择的来源里，慢慢发现值得了解的内容。"),
-            ("点子", "从你正在做的事里，找一个值得尝试的小步。"),
             ("目标", "从聊天里发现，和你一起往前推。"),
             ("资源库", "可以回到聊天继续修改的成果。"),
             ("聊天", "先连接一个模型，就可以开始聊天")
@@ -31,6 +30,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
 
         app.buttons["聊天"].tap()
         XCTAssertTrue(app.buttons["chat-add-attachment"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["点子"].exists, "Ideas are paused in the app navigation for now.")
 
         app.buttons["OpenMuse，查看活动、设备与身份"].tap()
         XCTAssertTrue(app.buttons["活动"].waitForExistence(timeout: 3))
@@ -50,7 +50,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         app.buttons["身份"].tap()
         XCTAssertTrue(app.staticTexts["身份与记忆"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["当前记忆"].exists)
-        XCTAssertTrue(app.staticTexts["这里管理同一份结构化记忆；过期或尚未生效的记录仍可在此查看和调整。MEMORY.md 自动维护区只展示当前有效记忆，完整且可迁移；USER.md 是精简画像，GLOBAL.md 是主题索引。明确表达可自动记录，导入或推断先经你确认；编辑同步到同一记录，撤销保留修订，彻底忘记会清除记录。"].exists)
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "这里管理同一份结构化记忆")).firstMatch.exists)
         XCTAssertTrue(app.staticTexts["明确告诉 OpenMuse“记住……”或表达稳定偏好后，记忆会列在这里。外部资料和推断不会自动写成事实。"].exists)
         XCTAssertTrue(app.staticTexts["SOUL.md"].exists)
 
@@ -71,15 +71,67 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 0)
 
         app.buttons["start-side-conversation"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["navigation-drawer"].waitForNonExistence(timeout: 3))
         app.buttons["打开侧栏"].tap()
-        let sideChat = app.buttons["新旁聊"]
+        let drawer = app.descendants(matching: .any)["navigation-drawer"]
+        XCTAssertTrue(drawer.waitForExistence(timeout: 3))
+        let sideChat = drawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).firstMatch
         XCTAssertTrue(sideChat.waitForExistence(timeout: 3))
         XCTAssertEqual(sideChat.value as? String, "当前对话")
 
         app.buttons["open-primary-chat"].tap()
+        XCTAssertTrue(drawer.waitForNonExistence(timeout: 3))
         app.buttons["打开侧栏"].tap()
-        XCTAssertEqual(app.buttons["新旁聊"].value as? String, "未选中")
+        let reopenedDrawer = app.descendants(matching: .any)["navigation-drawer"]
+        XCTAssertTrue(reopenedDrawer.waitForExistence(timeout: 3))
+        XCTAssertEqual(reopenedDrawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).firstMatch.value as? String, "未选中")
         XCTAssertEqual(app.staticTexts.matching(identifier: "primary-conversation-title").count, 0)
+    }
+
+    func testDrawerIsNarrowerAndOnlyKeepsChatNavigation() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = ["-openmuse-ui-test-workspace", UUID().uuidString]
+        app.launch()
+        XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
+
+        app.buttons["打开侧栏"].tap()
+        let drawer = app.descendants(matching: .any)["navigation-drawer"]
+        XCTAssertTrue(drawer.waitForExistence(timeout: 3))
+        XCTAssertLessThan(drawer.frame.width / app.frame.width, 0.79, "The drawer should leave more of the conversation visible, close to Muse's width.")
+        XCTAssertTrue(drawer.buttons["open-primary-chat"].exists)
+        XCTAssertFalse(drawer.buttons["open-feed"].exists)
+        XCTAssertFalse(drawer.buttons["open-ideas"].exists)
+        XCTAssertFalse(drawer.buttons["open-goals"].exists)
+        XCTAssertFalse(drawer.buttons["open-library"].exists)
+        XCTAssertTrue(drawer.staticTexts["旁聊"].exists)
+
+        app.buttons["start-side-conversation"].tap()
+        XCTAssertTrue(drawer.waitForNonExistence(timeout: 3))
+        app.buttons["打开侧栏"].tap()
+        let reopenedDrawer = app.descendants(matching: .any)["navigation-drawer"]
+        XCTAssertTrue(reopenedDrawer.waitForExistence(timeout: 3))
+        XCTAssertTrue(reopenedDrawer.buttons.matching(NSPredicate(format: "label == %@", "新旁聊")).firstMatch.exists)
+        app.buttons["open-primary-chat"].tap()
+        XCTAssertFalse(app.buttons["点子"].exists)
+    }
+
+    func testCompanionStatusUsesPlainLanguageAfterReply() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = [
+            "-openmuse-ui-test-workspace", UUID().uuidString,
+            "-openmuse-ui-seed-friendly-reply-status"
+        ]
+        app.launch()
+        XCTAssertTrue(app.buttons["OpenMuse，查看活动、设备与身份"].waitForExistence(timeout: 10))
+        app.buttons["OpenMuse，查看活动、设备与身份"].tap()
+
+        let status = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "已回复，聊天记录已保存。")).firstMatch
+        XCTAssertTrue(status.waitForExistence(timeout: 3))
+        XCTAssertTrue(status.label.contains("已回复，聊天记录已保存。"))
+        XCTAssertFalse(status.label.contains("模型回复"))
+        XCTAssertFalse(status.label.contains("副本保存在本机"))
     }
 
     func testTravelArtifactStaysBetweenItsSourceReplyAndLaterChat() {
@@ -220,7 +272,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertTrue(app.buttons["打开侧栏"].waitForExistence(timeout: 10))
         captureScreen("chat-first-run")
 
-        let sections = ["动态", "点子", "目标", "资源库"]
+        let sections = ["动态", "目标", "资源库"]
         for section in sections {
             app.buttons[section].tap()
             captureScreen("section-\(section)")
