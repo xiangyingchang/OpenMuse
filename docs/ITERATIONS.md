@@ -814,4 +814,4 @@
 - 验证：完整 `swift test --scratch-path .build/t87-core` 执行281项，279通过、2项因未设置实时 Mac/Tailscale 地址条件跳过、0失败。随后对修改过断言的历史检索与 JSONL 便携备份往返各重跑1项，均通过。覆盖 Asia/Shanghai 跨午夜 2026-10-13 23:40 与 2026-10-14 00:20 两个独立日期、模型真实上下文注入、旧消息缺时区解码、来源检索标注，以及便携备份保留时区字段。`git diff --check` 通过。
 - Release：iOS Release 配置 ARM64 构建通过，版本 `0.1.4 (15)`，Bundle ID `org.openmuse.ios`，`OpenMuseLiveActivity.appex` 已嵌入；Mac Debug 构建通过。个人开发签名归档因当前 Xcode 命令行报告 `No Accounts` 且缺少主 App 与 Live Activity 的开发描述文件而失败，未生成可安装 IPA，未安装真机。未签名检查包 `.build/OpenMuse-T87-iOS-Release/OpenMuse-0.1.4-15-unsigned.zip`，SHA-256 `8029d6dd09dbbd8c9fec798040fb4475002cae400c9e442bf20fb59093f328ab`；包内明确注明不能直接安装。源码 GitHub Release 不附设备专用签名包。
 - 限制：没有用真实模型服务做跨日自由对话复验，也没有在真机安装；当前自动化验证的是消息时间/时区持久化、模型请求上下文和提示规则。提示词能降低旧日期误用风险，但 LLM 仍可能误读含糊表达；若日期会影响实际行动，仍应先确认。
-- 交付：提交实现、推送 `main`，并发布 `v0.1.4` 源码 Release；发布成功后补录链接。
+- 交付：实现提交 `199a3ea` 已推送至 `origin/main`；公开源码 Release：[OpenMuse iOS 0.1.4](https://github.com/xiangyingchang/OpenMuse/releases/tag/v0.1.4)。Release 指向实现提交，未附无法安装的未签名包。
