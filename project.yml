@@ -16,7 +16,7 @@ targets:
       path: Config/OpenMuse-iOS-Info.plist
       properties:
         CFBundleDisplayName: OpenMuse
-        CFBundleShortVersionString: 0.1.3
+        CFBundleShortVersionString: 0.1.4
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         NSAlarmKitUsageDescription: OpenMuse 会按你的聊天请求在 iPhone 上设置闹钟或计时器。
         NSSupportsLiveActivities: true
@@ -43,8 +43,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios
         PRODUCT_NAME: OpenMuse
-        MARKETING_VERSION: 0.1.3
-        CURRENT_PROJECT_VERSION: 11
+        MARKETING_VERSION: 0.1.4
+        CURRENT_PROJECT_VERSION: 15
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

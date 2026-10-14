@@ -168,7 +168,13 @@ public final class WorkspaceFiles {
         try promptContextSnapshot(contextWindow: contextWindow, query: query, relatedConversationIDs: relatedConversationIDs).text
     }
 
-    func promptContextSnapshot(contextWindow: Int = 32_000, query: String = "", relatedConversationIDs: Set<String> = [], asOf: Date = .now) throws -> PromptContextSnapshot {
+    func promptContextSnapshot(
+        contextWindow: Int = 32_000,
+        query: String = "",
+        relatedConversationIDs: Set<String> = [],
+        asOf: Date = .now,
+        timeZoneIdentifier: String = TimeZone.current.identifier
+    ) throws -> PromptContextSnapshot {
         // HEARTBEAT is a prospective schedule, not ordinary profile context. The
         // scheduler reads its structured plan directly when a maintenance run fires.
         let claims = try store.load(MemoryClaimRecord.self, kind: RecordKind.memoryClaim)
@@ -204,7 +210,8 @@ public final class WorkspaceFiles {
             historicalMessages: historicalMessages,
             historySearchFailed: historySearchFailed,
             relatedConversationIDs: relatedConversationIDs,
-            asOf: asOf
+            asOf: asOf,
+            timeZoneIdentifier: timeZoneIdentifier
         )
     }
 

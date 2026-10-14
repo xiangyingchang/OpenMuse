@@ -8,7 +8,10 @@ final class WorkspacePortableArchiveTests: XCTestCase {
     func testPortableZipRoundTripsJSONLHistoryConflictsAndSeparateAttachmentBytes() throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let conversation = ConversationRecord(id: "portable-conversation", title: "旅行计划", createdAt: now, updatedAt: now)
-        let message = MessageRecord(id: "portable-message", conversationID: conversation.id, role: .user, content: "看看附件", createdAt: now, attachmentIDs: ["portable-file"])
+        let message = MessageRecord(
+            id: "portable-message", conversationID: conversation.id, role: .user, content: "看看附件",
+            createdAt: now, attachmentIDs: ["portable-file"], timeZoneIdentifier: "Asia/Shanghai"
+        )
         let document = WorkspaceDocument(path: "GLOBAL.md", title: "GLOBAL", content: "便携记忆", revision: 2, updatedAt: now)
         let olderDocument = WorkspaceDocument(path: "GLOBAL.md", title: "GLOBAL", content: "旧版本", revision: 1, updatedAt: now.addingTimeInterval(-60))
         let attachmentBytes = Data("可迁移的附件原文".utf8)
@@ -57,6 +60,7 @@ final class WorkspacePortableArchiveTests: XCTestCase {
         XCTAssertEqual(restored.payload.conflicts.count, 1)
         XCTAssertEqual(restored.attachmentFiles.first?.data, attachmentBytes)
         let restoredMessage = try XCTUnwrap(restored.payload.records.first(where: { $0.kind == RecordKind.message }).map { try JSONDecoder().decode(MessageRecord.self, from: $0.payload) })
+        XCTAssertEqual(restoredMessage.timeZoneIdentifier, "Asia/Shanghai")
         XCTAssertEqual(restoredMessage.attachmentIDs, [attachment.id])
 
         let legacyJSON = try archive.encoded()

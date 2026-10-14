@@ -478,8 +478,11 @@ public struct MessageRecord: Codable, Identifiable, Equatable {
     public var importedFrom: String?
     public var importedSourceID: String?
     public var attachmentIDs: [String]?
+    /// IANA time zone captured when this message was created. Older and imported
+    /// records may not have one, so consumers must treat their local time as an estimate.
+    public var timeZoneIdentifier: String?
 
-    public init(id: String = UUID().uuidString, conversationID: String, role: MessageRole, content: String, createdAt: Date = .now, status: String = "complete", importedFrom: String? = nil, importedSourceID: String? = nil, attachmentIDs: [String]? = nil) {
+    public init(id: String = UUID().uuidString, conversationID: String, role: MessageRole, content: String, createdAt: Date = .now, status: String = "complete", importedFrom: String? = nil, importedSourceID: String? = nil, attachmentIDs: [String]? = nil, timeZoneIdentifier: String? = nil) {
         self.id = id
         self.conversationID = conversationID
         self.role = role
@@ -489,6 +492,7 @@ public struct MessageRecord: Codable, Identifiable, Equatable {
         self.importedFrom = importedFrom
         self.importedSourceID = importedSourceID
         self.attachmentIDs = attachmentIDs
+        self.timeZoneIdentifier = timeZoneIdentifier
     }
 }
 

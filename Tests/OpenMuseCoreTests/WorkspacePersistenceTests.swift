@@ -176,6 +176,40 @@ final class WorkspacePersistenceTests: XCTestCase {
     }
 
     @MainActor
+    func testChatStoresAndSendsTheLocalTimeZoneForEachTurn() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseTemporalChat-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://temporal-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-temporal-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+        let recorder = FullTranscriptRecorder()
+        let model = OpenMuseAppModel(
+            runtimeOverride: FullTranscriptCaptureRuntime(recorder: recorder),
+            workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+
+        await model.send("今晚训练暂停。")
+
+        let userMessage = try XCTUnwrap(model.messages.first(where: { $0.role == .user }))
+        let currentZone = TimeZone.current.identifier
+        XCTAssertEqual(userMessage.timeZoneIdentifier, currentZone)
+        let capturedValue = await recorder.latest()
+        let captured = try XCTUnwrap(capturedValue)
+        XCTAssertTrue(captured.systemPrompt.contains("IANA 时区为 \(currentZone)"))
+        XCTAssertTrue(captured.systemPrompt.contains("不能把旧消息的日期锚点沿用到本轮"))
+        let currentTurn = try XCTUnwrap(captured.messages.last?.content)
+        XCTAssertTrue(currentTurn.contains("今晚训练暂停。"))
+        XCTAssertTrue(currentTurn.contains("发送时记录"))
+        XCTAssertTrue(currentTurn.contains(ConversationTemporalContext.messageMetadata(
+            createdAt: userMessage.createdAt,
+            timeZoneIdentifier: currentZone,
+            fallbackTimeZoneIdentifier: currentZone
+        )))
+    }
+
+    @MainActor
     func testWorkspaceArchiveRoundTripsAttachmentBytesAndConversationReferences() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseAttachmentArchiveRoundTrip-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
@@ -713,7 +747,8 @@ final class WorkspacePersistenceTests: XCTestCase {
         let files = try WorkspaceFiles(store: store, rootURL: directory.appendingPathComponent("workspace", isDirectory: true))
         let oldMessage = MessageRecord(
             id: "history-user-trip", conversationID: "old-trip-chat", role: .user,
-            content: "我计划去恩施旅游時喜欢慢节奏，不想每天排满。", createdAt: Date(timeIntervalSince1970: 100)
+            content: "我计划去恩施旅游時喜欢慢节奏，不想每天排满。",
+            createdAt: Date(timeIntervalSince1970: 100), timeZoneIdentifier: "Asia/Shanghai"
         )
         let importedMessage = MessageRecord(
             id: "imported-user-trip", conversationID: "imported-chat", role: .user,
@@ -743,6 +778,7 @@ final class WorkspacePersistenceTests: XCTestCase {
         )
 
         XCTAssertTrue(snapshot.text.contains("history-user-trip"))
+        XCTAssertTrue(snapshot.text.contains("时区：Asia/Shanghai；发送时记录"))
         XCTAssertTrue(snapshot.text.contains("可能已过期，仅作来源资料"))
         XCTAssertFalse(snapshot.text.contains("imported-user-trip"))
         XCTAssertFalse(snapshot.text.contains("current-user-trip"))

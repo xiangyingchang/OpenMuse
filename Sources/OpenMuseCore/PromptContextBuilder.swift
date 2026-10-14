@@ -53,7 +53,8 @@ enum PromptContextBuilder {
         historicalMessages: [MessageRecord] = [],
         historySearchFailed: Bool = false,
         relatedConversationIDs: Set<String> = [],
-        asOf: Date = .now
+        asOf: Date = .now,
+        timeZoneIdentifier: String = TimeZone.current.identifier
     ) -> PromptContextSnapshot {
         let budget = min(12_000, max(128, max(1, contextWindow) / 4))
         let contentBudget = max(0, budget - min(200, budget / 3))
@@ -65,6 +66,7 @@ enum PromptContextBuilder {
             historicalMessages: historicalMessages,
             relatedConversationIDs: relatedConversationIDs,
             asOf: asOf,
+            timeZoneIdentifier: timeZoneIdentifier,
             tokenBudget: min(1_800, contentBudget / 3)
         )
         let documentBudget = max(0, contentBudget - estimateTokens(related.text))
@@ -169,6 +171,7 @@ enum PromptContextBuilder {
         historicalMessages: [MessageRecord],
         relatedConversationIDs: Set<String>,
         asOf: Date,
+        timeZoneIdentifier: String,
         tokenBudget: Int
     ) -> RelatedContext {
         let queryTerms = retrievalTerms(String(query.prefix(20_000)))
@@ -229,11 +232,15 @@ enum PromptContextBuilder {
             guard !matches.isEmpty else { return nil }
             let excerpt = String(message.content.prefix(500))
             let truncation = message.content.count > 500 ? "…（原消息已截短）" : ""
-            let date = ISO8601DateFormatter().string(from: message.createdAt)
+            let date = ConversationTemporalContext.messageMetadata(
+                createdAt: message.createdAt,
+                timeZoneIdentifier: message.timeZoneIdentifier,
+                fallbackTimeZoneIdentifier: timeZoneIdentifier
+            )
             return RankedLine(
                 score: matches.count,
                 updatedAt: message.createdAt,
-                text: "- 历史对话中的用户表达（日期：\(date)；对话 ID：\(message.conversationID)；消息 ID：\(message.id)；可能已过期，仅作来源资料）：『\(excerpt)\(truncation)』"
+                text: "- 历史对话中的用户表达（\(date)；对话 ID：\(message.conversationID)；消息 ID：\(message.id)；可能已过期，仅作来源资料）：『\(excerpt)\(truncation)』"
             )
         }
         let ranked = (rankedGoals + rankedClaims + rankedReferences + rankedHistory).sorted {

@@ -4,7 +4,11 @@ enum SideConversationContext {
     static let maximumMessages = 4
     static let maximumCharactersPerMessage = 600
 
-    static func excerpt(parentConversationID: String, messages: [MessageRecord]) -> String? {
+    static func excerpt(
+        parentConversationID: String,
+        messages: [MessageRecord],
+        fallbackTimeZoneIdentifier: String = TimeZone.current.identifier
+    ) -> String? {
         let recent = messages
             .filter {
                 $0.conversationID == parentConversationID &&
@@ -19,7 +23,12 @@ enum SideConversationContext {
             let speaker = message.role == .user ? "用户" : "OpenMuse"
             let content = String(message.content.prefix(maximumCharactersPerMessage))
             let truncation = message.content.count > maximumCharactersPerMessage ? "…[已截短]" : ""
-            return "\(speaker)：\(content)\(truncation)"
+            let date = ConversationTemporalContext.messageMetadata(
+                createdAt: message.createdAt,
+                timeZoneIdentifier: message.timeZoneIdentifier,
+                fallbackTimeZoneIdentifier: fallbackTimeZoneIdentifier
+            )
+            return "[\(date)] \(speaker)：\(content)\(truncation)"
         }.joined(separator: "\n\n")
     }
 }

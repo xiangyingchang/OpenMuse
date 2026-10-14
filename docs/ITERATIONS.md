@@ -806,3 +806,12 @@
 - 验证：`swift test` 执行277项、2项条件跳过、0失败；新增删除测试覆盖消息/附件墓碑、附件文件清理、目标/构件/活动/执行/记忆保留、活动运行时阻止删除，以及501条消息的长旁聊原子删除。日志 `.build/logs/openmuse-t86-core-tests-final.log`。iPhone 17 Pro Max / iOS 26.5 模拟器通过3项 UI 用例：我的页面普通 Tab 往返、侧栏二次确认删除旁聊、顶部按钮 y≥68pt 且左右对齐；结果 `.build/OpenMuse-T86-Navigation-UI-Verified.xcresult`，日志 `.build/logs/openmuse-t86-ui-tests-verified.log`。macOS `OpenMuseMac` Debug 构建通过，日志 `.build/logs/openmuse-t86-mac-debug-build.log`。定向删除测试日志 `.build/logs/openmuse-t86-deletion-core-tests.log`。
 - 限制：本轮只做模拟器 UI 验收，不是 iPhone 真机安装；未连接配对 Mac 实测墓碑网络同步，也未生成 Release IPA。核心和界面回归不覆盖真实设备屏幕差异。
 - 交付：实现提交 `d6ee6cf`（`Improve iOS navigation and side chat deletion`）已推送至 `origin/main`；其后本次记录更新也会独立提交，保留已推送的实现历史。
+
+## T87：2026-10-14 相对日期按消息时间与时区锚定
+
+- 问题：用户昨天说“今晚暂停”，今天再次说“今晚暂停”时，模型仍可能把新表达当成昨天那一晚。根因是 `MessageRecord` 只有绝对时间戳，送给模型的对话没有逐条时间或时区，系统提示也没有提供本轮日期基准；模型只能从旧聊天语义猜“今晚”指哪一天。
+- 方案与实现：新消息继续使用原有 `createdAt` 绝对时间，并新增可选 IANA `timeZoneIdentifier` 保存发送设备时区；不修改用户原话。近期主聊、旁聊引用、召回的历史表达都向模型提供每条消息的本地时间及来源时区，模型同时收到本轮发消息时的时间基准。提示规则要求独立解释每条消息中的“今天/昨天/今晚/明天”，新一天重复同样表达默认是新日期的单次安排；长期目标与一次性安排分开。旧记录/导入聊天没有时区时按本轮时区近似显示并标明未知，不伪造原时区。结构字段由既有 JSON/SQLite/同步/备份机制承载，无破坏性迁移。
+- 验证：完整 `swift test --scratch-path .build/t87-core` 执行281项，279通过、2项因未设置实时 Mac/Tailscale 地址条件跳过、0失败。随后对修改过断言的历史检索与 JSONL 便携备份往返各重跑1项，均通过。覆盖 Asia/Shanghai 跨午夜 2026-10-13 23:40 与 2026-10-14 00:20 两个独立日期、模型真实上下文注入、旧消息缺时区解码、来源检索标注，以及便携备份保留时区字段。`git diff --check` 通过。
+- Release：iOS Release 配置 ARM64 构建通过，版本 `0.1.4 (15)`，Bundle ID `org.openmuse.ios`，`OpenMuseLiveActivity.appex` 已嵌入；Mac Debug 构建通过。个人开发签名归档因当前 Xcode 命令行报告 `No Accounts` 且缺少主 App 与 Live Activity 的开发描述文件而失败，未生成可安装 IPA，未安装真机。未签名检查包 `.build/OpenMuse-T87-iOS-Release/OpenMuse-0.1.4-15-unsigned.zip`，SHA-256 `8029d6dd09dbbd8c9fec798040fb4475002cae400c9e442bf20fb59093f328ab`；包内明确注明不能直接安装。源码 GitHub Release 不附设备专用签名包。
+- 限制：没有用真实模型服务做跨日自由对话复验，也没有在真机安装；当前自动化验证的是消息时间/时区持久化、模型请求上下文和提示规则。提示词能降低旧日期误用风险，但 LLM 仍可能误读含糊表达；若日期会影响实际行动，仍应先确认。
+- 交付：提交实现、推送 `main`，并发布 `v0.1.4` 源码 Release；发布成功后补录链接。
