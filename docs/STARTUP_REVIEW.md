@@ -1,10 +1,18 @@
 # 开工状态与方案入口
 
-## 最新 iOS Release 包：2026-10-12（T80）
+## 最新真机版本：2026-10-15 iPhone 16 Pro（T88）
+
+Release `0.1.4 (16)` 已安装到 iPhone 16 Pro / iOS 27.2，并由 `devicectl` 启动成功。代码签名校验通过，设备进程表确认 `OpenMuse.app/OpenMuse` 正在运行。完整 Core 测试288项执行、286通过、2项条件跳过、0失败。本轮没有重放真实模型聊天、做 PUA 视觉验收或旅行流程回归，也没有导出 IPA。设备构建、安装和启动日志见 `.build/logs/openmuse-t88-ios16-release-device-build.log`、`.build/logs/openmuse-t88-ios16-release-install.log`、`.build/logs/openmuse-t88-ios16-release-launch.log`；根因、修复和验证边界见 [T88](ITERATIONS.md#t88)。
+
+## 前一版真机安装：2026-10-15 iPhone 16 Pro（T86）
+
+Release `0.1.4 (15)` 已安装并启动；签名与主 App、Live Activity profile 检查通过。本轮没有做 PUA 视觉验收、模型请求或旅行流程回归，也没有导出 IPA。耗时原因与提速步骤见 [T86](ITERATIONS.md#t86)。
+
+## 最近导出的 iOS IPA：2026-10-12（T80）
 
 已生成 iOS ARM64 Release Archive 并导出 IPA `0.1.0 (8)`；Personal Team 开发签名校验通过。最新产物在本机忽略目录 `.build/OpenMuse-T80-iOS-Release-final2/OpenMuse.ipa`，SHA-256 为 `7381c2b2dc3ec7ce3965c08f8581a348ac38576adf7f40823920c3817d1aa8f3`；profile 于2026-10-18到期。该版本尚未安装到手机，也没有在用户的实际本地数据库上执行迁移；验收日志、校验值和测试范围见 [T80](ITERATIONS.md#t80)。
 
-## 最新设备版本：2026-10-12 iPhone 16 Pro 安装（T78）
+## 较早真机安装：2026-10-12 iPhone 16 Pro（T78）
 
 当前源码以 Personal Team 签名为 `0.1.0 (6)`，安装到 iPhone 16 Pro / iOS 27.2；设备应用清单确认版本号，`devicectl` 启动成功，`codesign --verify --deep --strict` 通过。没有进行 PUA 视觉页面验收、模型请求或核心旅行流程重测。构建与安装日志见 [T78](ITERATIONS.md#t78)。
 
@@ -12,7 +20,7 @@
 
 Keychain 异步读取尚未完成时首次发送会误报模型未配置；现在发送路径会异步刷新凭证状态。另将 Bridge 启动测试改用临时端口，并消除共享初始化器引用 macOS-only 类型造成的 iOS 编译失败。测试专用内存 Keychain 后端下 Core 全量测试251项执行、249项通过、2项条件跳过、0失败；首次目标追踪回归与 Bridge 健康路由各1/1通过。修改后 Mac Debug 与 iOS Simulator Debug 构建通过。内存后端测试不覆盖真实系统 Keychain；全套17项 UI 结果仍是 T76，未在 T77 后重跑。日志和具体边界见 [T77](ITERATIONS.md#t77)。
 
-当前任务的 Computer Use 接口返回 `apps=[]`，只提供浏览器标签，不能控制桌面应用。Xcode Signing & Capabilities 仍未目视核查；命令行工程设置没有选定 Team/profile。需要在有本机 Computer Use 的 Codex 桌面任务中继续，不能把浏览器 CDP 设置当作桌面控制开关。
+历史状态（T77，2026-10-12）：当时的 Computer Use 接口只返回浏览器标签，不能控制桌面应用，因此还未目视核查 Xcode Signing & Capabilities。该签名问题后来在 T86 真机安装中完成处理；这段记录保留当时状态，不能代表当前签名或设备状态。
 
 ## 最新验收：2026-10-12 修复后完整 iOS Simulator UI 回归（T76）
 
@@ -24,7 +32,7 @@ Build 5 Mac App 首屏曾因在 SwiftUI 渲染中同步读取 API 密钥而卡�
 
 完整 Core 回归两次停在 macOS 系统钥匙串 `SecItemAdd`/`SecItemCopyMatching`，均未得到完整结果；不能算测试通过，也没有断言失败。T73 的247项完整回归仍是最近一次成功的完整 Core 结果。T75 未进行真实模型请求或 iPhone 重装。
 
-当前 Computer Use 会话的桌面应用列表为空，所以没有完成 Xcode Signing & Capabilities 页面目视检查。`xcodebuild -showBuildSettings` 显示 iOS target 使用 Automatic Signing，但 `DEVELOPMENT_TEAM` 和 provisioning profile 未设置；这不能单独判断 Xcode 账号是否已登录。需要在具有桌面 Computer Use 能力的 Codex 桌面会话中复核该页面。细节和日志见 [T75](ITERATIONS.md#t75)。
+当时（T75，2026-10-12）的 Computer Use 会话没有桌面应用控制，因此未完成 Xcode Signing & Capabilities 页面目视检查。`xcodebuild -showBuildSettings` 显示 iOS target 使用 Automatic Signing，但 `DEVELOPMENT_TEAM` 和 provisioning profile 未设置；这不能单独判断 Xcode 账号是否已登录。后续签名状态见 T86。细节和日志见 [T75](ITERATIONS.md#t75)。
 
 ## Build 5 设备构建记录：2026-10-12（T74，后续由 T75 补验）
 

@@ -11,6 +11,35 @@ struct ModelInputContextSnapshot: Sendable {
     let historyTruncated: Bool
 }
 
+enum ModelPromptEnvelope {
+    static let referenceOpen = "<openmuse-reference-data>"
+    static let referenceClose = "</openmuse-reference-data>"
+    static let currentOpen = "<openmuse-current-message>"
+    static let currentClose = "</openmuse-current-message>"
+
+    static func currentMessage(from content: String) -> String {
+        guard let opening = content.range(of: currentOpen),
+              let closing = content.range(of: currentClose, range: opening.upperBound..<content.endIndex) else {
+            return content
+        }
+        return String(content[opening.upperBound..<closing.lowerBound])
+    }
+
+    static func currentRequest(from messages: [TranscriptMessage]) -> String? {
+        guard let content = messages.last(where: { $0.role == "user" })?.content else { return nil }
+        return currentMessage(from: content)
+    }
+
+    static func escapingEnvelopeMarkers(in content: String) -> String {
+        [referenceOpen, referenceClose, currentOpen, currentClose].reduce(content) { result, marker in
+            let escaped = marker
+                .replacingOccurrences(of: "<", with: "&lt;")
+                .replacingOccurrences(of: ">", with: "&gt;")
+            return result.replacingOccurrences(of: marker, with: escaped, options: .caseInsensitive)
+        }
+    }
+}
+
 /// Fits all user-controlled context into one estimated model window. The estimate is
 /// intentionally conservative and provider-independent; it is not a tokenizer.
 enum ModelInputContextBuilder {
@@ -27,7 +56,7 @@ enum ModelInputContextBuilder {
 
     static func build(
         systemPrompt: String,
-        referenceMessage: TranscriptMessage,
+        referenceData: String,
         parentContext: [TranscriptMessage],
         recentMessages: [TranscriptMessage],
         contextWindow: Int
@@ -43,15 +72,21 @@ enum ModelInputContextBuilder {
 
         // PromptContextBuilder already limits reference data to at most a quarter of
         // the declared window. Keep that bound when recent chat is also present.
-        let referenceCap = min(
-            PromptContextBuilder.estimateTokens(referenceMessage.content),
-            min(max(64, budget / 4), remaining)
+        let referenceWrapper = "\(ModelPromptEnvelope.referenceOpen)\n\n\(ModelPromptEnvelope.referenceClose)"
+        let referenceWrapperCost = PromptContextBuilder.estimateTokens(referenceWrapper)
+        let referenceCap = min(max(64, budget / 4), remaining)
+        let fittedReference = fit(
+            ModelPromptEnvelope.escapingEnvelopeMarkers(in: referenceData),
+            to: max(0, referenceCap - referenceWrapperCost),
+            marker: "\n[部分记忆与资料因本轮总上下文预算未载入。]"
         )
-        let fittedReference = fit(referenceMessage.content, to: referenceCap, marker: "\n[部分记忆与资料因本轮总上下文预算未载入。]")
         let referenceDataTruncated = fittedReference.truncated
         wasTruncated = wasTruncated || fittedReference.truncated
-        if !fittedReference.text.isEmpty {
-            remaining = max(0, remaining - PromptContextBuilder.estimateTokens(fittedReference.text))
+        let referenceEnvelope = fittedReference.text.isEmpty
+            ? ""
+            : "\(ModelPromptEnvelope.referenceOpen)\n\(fittedReference.text)\n\(ModelPromptEnvelope.referenceClose)"
+        if !referenceEnvelope.isEmpty {
+            remaining = max(0, remaining - PromptContextBuilder.estimateTokens(referenceEnvelope))
         }
 
         let current = recentMessages.last
@@ -59,11 +94,22 @@ enum ModelInputContextBuilder {
         var fittedCurrent: TranscriptMessage?
         var currentMessageTruncated = false
         if let current {
-            let fitted = fit(current.content, to: remaining, marker: "\n[本条消息因模型上下文窗口限制已截短。]")
-            fittedCurrent = TranscriptMessage(role: current.role, content: fitted.text)
+            let currentWrapper = "\(ModelPromptEnvelope.currentOpen)\n\n\(ModelPromptEnvelope.currentClose)"
+            let currentPrefix = referenceEnvelope.isEmpty
+                ? "\(ModelPromptEnvelope.currentOpen)\n"
+                : "\(referenceEnvelope)\n\n\(ModelPromptEnvelope.currentOpen)\n"
+            let currentSuffix = "\n\(ModelPromptEnvelope.currentClose)"
+            let wrapperCost = PromptContextBuilder.estimateTokens(currentWrapper)
+                + (referenceEnvelope.isEmpty ? 0 : PromptContextBuilder.estimateTokens("\n\n"))
+            let fitted = fit(
+                ModelPromptEnvelope.escapingEnvelopeMarkers(in: current.content),
+                to: max(0, remaining - wrapperCost),
+                marker: "\n[本条消息因模型上下文窗口限制已截短。]"
+            )
+            fittedCurrent = TranscriptMessage(role: current.role, content: "\(currentPrefix)\(fitted.text)\(currentSuffix)")
             currentMessageTruncated = fitted.truncated
             wasTruncated = wasTruncated || fitted.truncated
-            remaining = max(0, remaining - PromptContextBuilder.estimateTokens(fitted.text))
+            remaining = max(0, remaining - PromptContextBuilder.estimateTokens(fittedCurrent?.content ?? ""))
         }
 
         let parentCap = min(remaining, max(0, budget / 6))
@@ -100,9 +146,6 @@ enum ModelInputContextBuilder {
         selectedOlder.reverse()
 
         var result = [TranscriptMessage(role: "system", content: fittedSystem.text)]
-        if !fittedReference.text.isEmpty {
-            result.append(TranscriptMessage(role: referenceMessage.role, content: fittedReference.text))
-        }
         result += selectedParent
         result += selectedOlder
         if let fittedCurrent { result.append(fittedCurrent) }

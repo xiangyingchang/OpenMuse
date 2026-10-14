@@ -1,5 +1,20 @@
 # 迭代记录
 
+## T88：2026-10-15 修复结构化记忆上下文回显并安装真机
+
+- 问题与根因：新版本聊天中，模型把 `<openmuse-reference-data>`、USER.md 说明和自动维护区标记当成回复内容。代码检查确认，`OpenMuseAppModel` 曾把本地参考资料包装成独立的 `role=user` 消息，再把用户当前问题作为另一条 `role=user` 消息；系统提示还明确称 OpenMuse 资料是 user messages。模型因此可能把内部资料视为一条需要回应的用户输入。截图中的标记由模型生成，问题不在 Markdown 视图本身或聊天气泡渲染。
+- 修复方案：不再构造独立的参考资料用户轮次。将参考资料与当前原话放入同一条用户消息，并用 `<openmuse-reference-data>`、`<openmuse-current-message>` 标出边界；系统规则明确当前消息才是请求、参考资料只供内部理解且不得复述。对模型输出加入流式泄漏保护：检测到内部信封或记忆投影标记时清除本轮已显示的部分并拒绝保存整条回答，给出可理解的重试提示。用户和资料里原有边界标记会转义；手机浏览器/iSH 意图规则仅检查当前消息正文，避免把引用资料误当成工具请求。
+- 验证：完整 `swift test` 通过288项（286通过、2项依赖实时 Mac/Tailscale 条件跳过、0失败）；`git diff --check` 通过。新增测试覆盖单一用户轮次及引用/当前消息分界、流式分片中的标记、内部记忆标记、拒绝保存泄漏回答，以及工具策略只读取当前问题。
+- 真机安装：Release `0.1.4 (16)`，Bundle ID `org.openmuse.ios`，ARM64，Personal Team 签名。`codesign --verify --deep --strict` 通过；安装和 `devicectl` 启动成功，设备进程表确认应用正在运行。日志为 `.build/logs/openmuse-t88-ios16-release-device-build.log`、`.build/logs/openmuse-t88-ios16-release-install.log`、`.build/logs/openmuse-t88-ios16-release-launch.log` 与 `.build/logs/openmuse-t88-ios16-release-process-check.log`。未生成 IPA、未提交或推送。
+- 限制：本轮没有用真实模型重放用户原场景，也没有 PUA 画面检查；自动化验证覆盖上下文组装与标记拦截，不等于不同模型都不会语义性复述没有内部标记的资料。请在已安装的 Build 16 中继续原有对话或新开一轮复测；若再次出现，请保留活动记录和时间，不要公开 API key 或私人记忆。
+
+## T86：2026-10-15 iPhone 16 Pro Release 安装与提速复盘
+
+- 范围与结果：将 Release `0.1.4 (15)` 安装到 iPhone 16 Pro / iOS 27.2，并通过 `devicectl` 启动成功。主 App 与 Live Activity 扩展的签名 profile 都包含目标设备；`codesign --verify --deep --strict` 通过。安装、启动日志分别为 `.build/logs/openmuse-iphone16-release-install-20261015.log`、`.build/logs/openmuse-iphone16-release-launch-20261015.log`；Release 设备构建日志为 `.build/logs/openmuse-iphone16-release-device-build-20261015.log`。
+- 耗时原因：本轮约从 01:05 到 01:33（Asia/Shanghai）。最初把 Apple Development 证书标识误当成 Team ID，触发 `No Accounts`；更正并在 Xcode 给主 App 与 Live Activity 选择 Personal Team 后，通用 Archive 虽然成功，但扩展 profile 仍未包含 iPhone 16，首次安装失败。随后通过 Xcode 选中实际设备并运行一次以刷新两个 profile，再完整编译 Release 设备包。构建日志约 01:25–01:33（约 8 分钟）；最后安装约 5 秒、启动不到 1 秒。因此主要时间花在重复编译与签名/profile 排错，不在传输安装。
+- 下次更快的顺序：先核对 Team ID 与证书标识，不把证书后缀当 Team ID；确认主 App 和扩展都使用同一正确 Team。若目标是装到一台真机，从一开始就以该设备为 destination 做一次 Release device build、自动更新签名，然后检查主 App 和扩展 profile 均包含该设备，再安装并启动；只有需要分发 IPA 时才做 Archive/Export。复用同一 DerivedData 和现成的 `.build/ish-tooling/bin/ld.lld`，通过 `OPENMUSE_VDSO_LLD` 提供 iSH 链接器路径，避免改全局环境或重复做通用 Archive。若还要视觉验收，先确认 iPhone Use/WDA 指向同一台目标手机；本轮它仍指向另一台 iPhone，故只验收了安装与启动，没有验收界面。
+- 收尾：Xcode 曾写入 Team/本地链接器设置，已恢复 `project.pbxproj`。本轮复盘只更新记录文档，没有修改应用代码或保留个人签名配置；未导出 IPA、未重测模型或旅行流程，也未做 PUA 视觉验收。
+
 ## T85：2026-10-13 空旁聊、我的入口与灵动岛任务状态
 
 - 需求与方案：对应 D49、PRD 第26节。新旁聊在首条用户消息/附件原子保存前是临时编辑态，空白或保存失败不进入对话列表；iOS 聊天顶部移除 OpenMuse 头像/名称入口，底栏新增最右侧“我的”并复用陪伴者面板；运行阶段通过 ActivityKit/WidgetKit Live Activity 呈现。

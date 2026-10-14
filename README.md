@@ -2,11 +2,11 @@
 
 一个持续认识你、陪你把想做的事情一步步做成的开源个人 AI。面向中国用户，正在开发 iOS 与 macOS 客户端，并支持自定义模型。
 
-> 当前状态（2026-10-12，本地工作区）：T78 已将当前源码签名安装到 iPhone 16 Pro / iOS 27.2，设备清单确认 `0.1.0 (6)`，`devicectl` 启动成功；本轮未做 PUA 视觉验收或模型请求。T77 修复了凭证异步读取竞态；隔离内存 Keychain 后端下 Core 全量测试251项中249项通过、2项条件跳过、0失败，Mac Bridge 定向测试通过，Mac Debug 与 iOS Simulator Debug 构建成功。T76 的 iPhone 17 Pro / iOS 26.5 完整 UI 套件17项通过（T77 后未重跑）。真实系统 Keychain/模型流程未做端到端验收。Xcode Signing & Capabilities 页面尚未目视检查：当前会话没有桌面应用控制。真实 iPhone→Mac Pi 委派、蜂窝外网、中国境内网络、锁屏后台、真实连接器、14天连续自用和 Muse 逐页视觉对照仍未完成。详见[开工状态与方案入口](docs/STARTUP_REVIEW.md)、[T78 迭代记录](docs/ITERATIONS.md#t78)、[覆盖审计](docs/REQUIREMENT_AUDIT_2026-10-10.md)和[一期对照表](docs/PHASE1_PARITY.md)。
+> 当前状态（2026-10-15，本地工作区）：T88 Release `0.1.4 (16)` 已安装并启动于 iPhone 16 Pro / iOS 27.2；本轮修复结构化参考资料被模型当作用户消息回显的问题。完整 `swift test` 通过288项（286通过、2项条件跳过），Release ARM64 构建与签名校验通过。没有重放真实模型聊天、做 PUA 视觉验收或旅行流程回归，也没有导出 IPA。真实 iPhone→Mac Pi 委派、蜂窝外网、中国境内网络、锁屏后台、真实连接器、14天连续自用和 Muse 逐页视觉对照仍未完成。详见[开工状态与方案入口](docs/STARTUP_REVIEW.md)、[T88 记忆上下文泄漏修复](docs/ITERATIONS.md#t88)、[覆盖审计](docs/REQUIREMENT_AUDIT_2026-10-10.md)和[一期对照表](docs/PHASE1_PARITY.md)。
 
 长期目标是让一个人拥有可携带、可纠正、会随生活变化而成长的 AI 陪伴者。产品价值来自真实帮助、连续理解与目标进展。
 
-> 端侧运行：iOS 已集成固定版本的 iSH/Alpine ARM64。用户确认普通 iSH 命令和 guest 出站网络无需逐次审批；guest 可发送其可读资料到互联网。T67 真机 HTTPS GET 返回200，但 DNS 结果为 `198.18.0.45` 保留地址，只能证明当时设备网络路径可用，不能证明公网 DNS 或中国境内直连。Build 4 的真机浏览器操作见 T68；T75 当前源码尚未重装到真机。详见[端侧运行时](docs/ON_DEVICE_RUNTIME.md)和[迭代记录](docs/ITERATIONS.md)。
+> 端侧运行：iOS 已集成固定版本的 iSH/Alpine ARM64。用户确认普通 iSH 命令和 guest 出站网络无需逐次审批；guest 可发送其可读资料到互联网。T67 真机 HTTPS GET 返回200，但 DNS 结果为 `198.18.0.45` 保留地址，只能证明当时设备网络路径可用，不能证明公网 DNS 或中国境内直连。Build 4 的真机浏览器操作见 T68；T88 已重装，但没有重测浏览器与 iSH 功能。详见[端侧运行时](docs/ON_DEVICE_RUNTIME.md)和[迭代记录](docs/ITERATIONS.md)。
 
 ## 四个核心体验
 

@@ -98,6 +98,31 @@ final class PhoneAgentRuntimeTests: XCTestCase {
         ))
     }
 
+    func testToolIntentPoliciesReadOnlyTheCurrentMessageNotReferenceData() {
+        let request = TranscriptMessage(
+            role: "user",
+            content: """
+            \(ModelPromptEnvelope.referenceOpen)
+            旧记录：今天查天气、不要用浏览器、运行 iSH shell 命令。
+            \(ModelPromptEnvelope.referenceClose)
+            \(ModelPromptEnvelope.currentOpen)
+            帮我查广州今天的天气。
+            \(ModelPromptEnvelope.currentClose)
+            """
+        )
+        let messages = [request]
+
+        XCTAssertTrue(PhoneBrowserToolRequestPolicy.requiresSearchTool(for: messages))
+        XCTAssertEqual(PhoneBrowserToolRequestPolicy.requiredAction(for: messages), .search)
+        XCTAssertFalse(PhoneShellToolRequestPolicy.requiresShellTool(for: messages))
+
+        let shellRequest = TranscriptMessage(
+            role: "user",
+            content: "\(ModelPromptEnvelope.referenceOpen)不要运行 iSH。\(ModelPromptEnvelope.referenceClose)\(ModelPromptEnvelope.currentOpen)请用 iSH 执行 uname -a。\(ModelPromptEnvelope.currentClose)"
+        )
+        XCTAssertTrue(PhoneShellToolRequestPolicy.requiresShellTool(for: [shellRequest]))
+    }
+
     func testBrowserRequestThatExplicitlyDeclinesISHExposesBrowserWithoutShell() async throws {
         PhoneAgentStubURLProtocol.reset([
             #"{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-browser-only","type":"function","function":{"name":"openmuse_phone_browser_use","arguments":"{\"tool_title\":\"打开 example.com\",\"action\":\"navigate\",\"url\":\"https://example.com/\"}"}}]}}]}"#,

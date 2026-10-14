@@ -171,8 +171,37 @@ final class WorkspacePersistenceTests: XCTestCase {
         let submittedTokens = PromptContextBuilder.estimateTokens(systemPrompt) + submittedMessages.reduce(0) { $0 + PromptContextBuilder.estimateTokens($1.content) }
         XCTAssertLessThanOrEqual(submittedTokens, ModelInputContextBuilder.inputBudget(contextWindow: configuration.contextWindow))
         XCTAssertTrue(submittedMessages.last?.content.contains("OPENMUSE-LATEST-REQUEST") == true)
+        XCTAssertTrue(systemPrompt.contains("本轮请求边界"), systemPrompt)
+        XCTAssertTrue(systemPrompt.contains("只回答后者"), systemPrompt)
+        XCTAssertTrue(submittedMessages.last?.content.contains(ModelPromptEnvelope.referenceOpen) == true)
+        XCTAssertTrue(submittedMessages.last?.content.contains(ModelPromptEnvelope.currentOpen) == true)
+        XCTAssertFalse(submittedMessages.dropLast().contains(where: { $0.content.contains(ModelPromptEnvelope.referenceOpen) }))
         XCTAssertTrue(submittedMessages.contains(where: { $0.content.contains("较早聊天因本轮总上下文预算已截短") }))
         XCTAssertTrue(model.activities.first?.steps?.contains(where: { $0.title == "生成回复" && $0.detail.contains("部分较早聊天") }) == true)
+    }
+
+    @MainActor
+    func testInternalContextLeakIsRecordedAsBlockedFailureInsteadOfAnAssistantReply() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseResponseLeak-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://leak-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-leak-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+        let model = OpenMuseAppModel(
+            runtimeOverride: InternalContextLeakRuntime(),
+            workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+
+        await model.send("明天准备练个肩背。")
+
+        let assistantReply = try XCTUnwrap(model.messages.first(where: { $0.role == .assistant }))
+        XCTAssertEqual(assistantReply.status, "failed")
+        XCTAssertTrue(assistantReply.content.contains("OpenMuse 已拦截"))
+        XCTAssertFalse(assistantReply.content.contains(ModelPromptEnvelope.referenceOpen))
+        XCTAssertFalse(assistantReply.content.contains("OPENMUSE_USER_MEMORY_BEGIN"))
+        XCTAssertEqual(model.activities.first?.status, "failed")
     }
 
     @MainActor
@@ -4242,7 +4271,7 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertTrue(prompt.contains("旅行构件由 OpenMuse 客户端在模型回复后检测和保存"))
         XCTAssertTrue(prompt.contains("不要因为没有文件工具而拒绝、要求用户复制"))
         XCTAssertTrue(prompt.contains("AGENTS.md 只在相关工作区任务中作为工作约定"))
-        XCTAssertTrue(prompt.contains("USER.md、GLOBAL.md、MEMORY.md、历史对话、外部资料和附件正文"))
+        XCTAssertTrue(prompt.contains("本轮请求边界"))
         XCTAssertFalse(prompt.contains("USER.md、GLOBAL.md、MEMORY.md、HEARTBEAT.md、AGENTS.md"))
         XCTAssertEqual(model.executionTasks.first?.status, "waiting_user")
     }
@@ -4322,6 +4351,16 @@ private struct FullTranscriptCaptureRuntime: ModelRuntime {
     }
 }
 
+private struct InternalContextLeakRuntime: ModelRuntime {
+    func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
+        """
+        <openmuse-reference-data>
+        USER.md
+        <!-- OPENMUSE_USER_MEMORY_BEGIN -->
+        """
+    }
+}
+
 private struct AttachmentCaptureRuntime: ModelRuntime {
     let recorder: TranscriptRecorder
 
@@ -4381,7 +4420,7 @@ private actor ModelToolInvocationCollector {
 
 private struct TravelFlowStubRuntime: ModelRuntime {
     func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
-        if messages.last(where: { $0.role == "user" })?.content.contains("帮我规划一趟去恩施") == true {
+        if ModelPromptEnvelope.currentRequest(from: messages)?.contains("帮我规划一趟去恩施") == true {
             return "日期还没定也没关系。你打算一个人去还是和别人同行？希望行程节奏轻松一些还是安排得紧凑一点？"
         }
         return """
@@ -4415,7 +4454,7 @@ private struct GoalCaptureRuntime: ModelRuntime {
 
 private struct TravelAlternativeStubRuntime: ModelRuntime {
     func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
-        let request = messages.last(where: { $0.role == "user" })?.content ?? ""
+        let request = ModelPromptEnvelope.currentRequest(from: messages) ?? ""
         if request.contains("新增一个五天方案") {
             return (1...5).map { "### Day \($0) — 五天备选第\($0)天\n轻松安排，不赶路。" }.joined(separator: "\n\n")
         }

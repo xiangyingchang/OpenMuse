@@ -5,6 +5,7 @@ public enum ModelRuntimeError: Error, LocalizedError {
     case missingKey
     case server(String)
     case emptyResponse
+    case internalContextLeak
     case piUnavailable
     case piFailed(String)
 
@@ -14,6 +15,7 @@ public enum ModelRuntimeError: Error, LocalizedError {
         case .missingKey: "还没有保存模型密钥。请先在设置中配置。"
         case .server(let message): message
         case .emptyResponse: "模型返回了空内容，请重试或更换模型。"
+        case .internalContextLeak: "模型回复中出现了内部资料标记，OpenMuse 已拦截且没有保存这条回复。请重试或更换模型。"
         case .piUnavailable: "Mac 没有找到 Pi。请先安装 Pi 并确认它可从终端启动。"
         case .piFailed(let detail): detail
         }
@@ -224,7 +226,7 @@ enum PhoneShellToolRequestPolicy {
     static let toolName = "openmuse_phone_run_ish_command"
 
     static func requiresShellTool(for messages: [TranscriptMessage]) -> Bool {
-        guard let latestUserMessage = messages.last(where: { $0.role == "user" })?.content else { return false }
+        guard let latestUserMessage = ModelPromptEnvelope.currentRequest(from: messages) else { return false }
         let text = latestUserMessage.lowercased()
         let mentionsShell = text.range(
             of: #"(?<![a-z])i\s*sh(?![a-z])|(?<![a-z])shell(?![a-z])"#,
@@ -236,7 +238,7 @@ enum PhoneShellToolRequestPolicy {
     }
 
     static func explicitlyDeclinesShellTool(for messages: [TranscriptMessage]) -> Bool {
-        guard let latestUserMessage = messages.last(where: { $0.role == "user" })?.content else { return false }
+        guard let latestUserMessage = ModelPromptEnvelope.currentRequest(from: messages) else { return false }
         return explicitlyDeclinesShellExecution(in: latestUserMessage.lowercased())
     }
 
@@ -261,7 +263,7 @@ enum PhoneBrowserToolRequestPolicy {
     static let openToolName = toolName
 
     static func shouldExposeTools(for messages: [TranscriptMessage]) -> Bool {
-        guard let latestUserMessage = messages.last(where: { $0.role == "user" })?.content else { return false }
+        guard let latestUserMessage = ModelPromptEnvelope.currentRequest(from: messages) else { return false }
         let text = latestUserMessage.lowercased()
         // OpenMinis exposes browser_use as a normal agent capability unless
         // the user disables it. Keep it available for the model's own
@@ -270,7 +272,7 @@ enum PhoneBrowserToolRequestPolicy {
     }
 
     static func requiresSearchTool(for messages: [TranscriptMessage]) -> Bool {
-        guard let latestUserMessage = messages.last(where: { $0.role == "user" })?.content else { return false }
+        guard let latestUserMessage = ModelPromptEnvelope.currentRequest(from: messages) else { return false }
         let text = latestUserMessage.lowercased()
         guard !explicitlyDeclinesBrowsing(text) else { return false }
 
@@ -287,7 +289,7 @@ enum PhoneBrowserToolRequestPolicy {
 
     static func requiredAction(for messages: [TranscriptMessage]) -> PhoneBrowserAction? {
         if requiresSearchTool(for: messages) { return .search }
-        guard let latestUserMessage = messages.last(where: { $0.role == "user" })?.content else { return nil }
+        guard let latestUserMessage = ModelPromptEnvelope.currentRequest(from: messages) else { return nil }
         let text = latestUserMessage.lowercased()
         let hasURL = text.contains("https://") || text.contains("http://")
         let explicitlyRequestsNavigation = ["打开", "访问", "navigate", "open this link", "open this page"]
