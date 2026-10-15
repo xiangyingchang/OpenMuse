@@ -44,7 +44,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: org.openmuse.ios
         PRODUCT_NAME: OpenMuse
         MARKETING_VERSION: 0.1.4
-        CURRENT_PROJECT_VERSION: 16
+        CURRENT_PROJECT_VERSION: 20
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: OpenMuse
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES

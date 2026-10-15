@@ -3000,11 +3000,7 @@ public final class OpenMuseAppModel: ObservableObject {
         }
         enqueueLiveResponseText(safeText)
         liveResponseStreamFinished = true
-        if liveResponsePresentationBypassed {
-            completeLiveResponsePresentation()
-        } else {
-            startLiveResponsePresentationIfNeeded()
-        }
+        flushLiveResponsePresentationImmediately()
     }
 
     private func enqueueLiveResponseText(_ text: String) {
@@ -3015,7 +3011,20 @@ public final class OpenMuseAppModel: ObservableObject {
         }
         liveResponsePresentationBuffer.append(text)
         canShowLiveResponseFastForward = true
+        if liveResponsePresentationBuffer.shouldFlushAtParagraphBoundary(
+            presentedCharacterCount: liveResponse.count
+        ) {
+            liveResponse += liveResponsePresentationBuffer.drain()
+        }
         startLiveResponsePresentationIfNeeded()
+    }
+
+    private func flushLiveResponsePresentationImmediately() {
+        liveResponse += liveResponsePresentationBuffer.drain()
+        liveResponsePresentationTask?.cancel()
+        liveResponsePresentationTask = nil
+        liveResponsePresentationTaskID = nil
+        completeLiveResponsePresentation()
     }
 
     public func showLiveResponseImmediately() {
@@ -3048,22 +3057,23 @@ public final class OpenMuseAppModel: ObservableObject {
         }
 
         while !Task.isCancelled, liveResponsePresentationTaskID == taskID {
-            if let unit = liveResponsePresentationBuffer.takeNextUnit(streamIsFinished: liveResponseStreamFinished) {
-                liveResponse += unit.text
-                canShowLiveResponseFastForward = liveResponsePresentationBuffer.hasPendingText || !liveResponseStreamFinished
-                do { try await Task.sleep(nanoseconds: unit.delayNanoseconds) }
-                catch { return }
-                continue
-            }
-
             if liveResponseStreamFinished {
+                liveResponse += liveResponsePresentationBuffer.drain()
                 completeLiveResponsePresentation()
                 return
             }
 
-            canShowLiveResponseFastForward = liveResponsePresentationBuffer.hasPendingText
-            do { try await Task.sleep(nanoseconds: 40_000_000) }
+            let interval = StreamPresentationBuffer.refreshIntervalNanoseconds(
+                presentedCharacterCount: liveResponse.count
+            )
+            do { try await Task.sleep(nanoseconds: interval) }
             catch { return }
+
+            guard !Task.isCancelled, liveResponsePresentationTaskID == taskID else { return }
+            if liveResponsePresentationBuffer.hasPendingText {
+                liveResponse += liveResponsePresentationBuffer.drain()
+            }
+            canShowLiveResponseFastForward = liveResponsePresentationBuffer.hasPendingText || !liveResponseStreamFinished
         }
     }
 

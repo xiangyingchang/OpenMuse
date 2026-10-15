@@ -2,50 +2,54 @@ import XCTest
 @testable import OpenMuseCore
 
 final class StreamPresentationBufferTests: XCTestCase {
-    func testChineseTextUsesReadableCharacterUnitsAndSentencePauses() throws {
+    func testProviderDeltasAreCoalescedAndDrainedInOrder() {
         var buffer = StreamPresentationBuffer()
-        buffer.append("你好。")
+        buffer.append("先到的片段")
+        buffer.append("，后到的片段。")
 
-        let first = try XCTUnwrap(buffer.takeNextUnit(streamIsFinished: true))
-        XCTAssertEqual(first.text, "你")
-        XCTAssertEqual(first.delayNanoseconds, StreamPresentationBuffer.baseDelayNanoseconds)
-
-        let second = try XCTUnwrap(buffer.takeNextUnit(streamIsFinished: true))
-        XCTAssertEqual(second.text, "好。")
-        XCTAssertEqual(
-            second.delayNanoseconds,
-            StreamPresentationBuffer.baseDelayNanoseconds + StreamPresentationBuffer.sentencePauseNanoseconds
-        )
-        XCTAssertNil(buffer.takeNextUnit(streamIsFinished: true))
-    }
-
-    func testEnglishWordsStayTogetherUntilTheWordIsComplete() throws {
-        var buffer = StreamPresentationBuffer()
-        buffer.append("Hello")
-        XCTAssertNil(buffer.takeNextUnit(streamIsFinished: false))
-
-        buffer.append(" world!")
-        let hello = try XCTUnwrap(buffer.takeNextUnit(streamIsFinished: false))
-        XCTAssertEqual(hello.text, "Hello ")
-        let world = try XCTUnwrap(buffer.takeNextUnit(streamIsFinished: true))
-        XCTAssertEqual(world.text, "world!")
-    }
-
-    func testFinishedStreamReleasesAnUnterminatedFinalWord() throws {
-        var buffer = StreamPresentationBuffer()
-        buffer.append("OpenMuse")
-
-        let finalWord = try XCTUnwrap(buffer.takeNextUnit(streamIsFinished: true))
-        XCTAssertEqual(finalWord.text, "OpenMuse")
+        XCTAssertEqual(buffer.pendingCharacterCount, 12)
+        XCTAssertEqual(buffer.drain(), "先到的片段，后到的片段。")
         XCTAssertFalse(buffer.hasPendingText)
+        XCTAssertEqual(buffer.pendingCharacterCount, 0)
     }
 
-    func testFastForwardReturnsAllRemainingTextInOrder() throws {
+    func testReadableNewlineCanFlushACompleteBatchEarly() {
         var buffer = StreamPresentationBuffer()
-        buffer.append("前文，中间内容。")
-        let first = try XCTUnwrap(buffer.takeNextUnit(streamIsFinished: false))
-        XCTAssertEqual(first.text, "前")
-        XCTAssertEqual(buffer.drain(), "文，中间内容。")
+        buffer.append(String(repeating: "路线内容", count: 13) + "\n")
+
+        XCTAssertTrue(buffer.shouldFlushAtParagraphBoundary(presentedCharacterCount: 0))
+    }
+
+    func testShortOrAlreadyLongRepliesDoNotForceParagraphFlush() {
+        var buffer = StreamPresentationBuffer()
+        buffer.append("短行\n")
+        XCTAssertFalse(buffer.shouldFlushAtParagraphBoundary(presentedCharacterCount: 0))
+
+        buffer.append(String(repeating: "补充", count: 24))
+        XCTAssertFalse(buffer.shouldFlushAtParagraphBoundary(presentedCharacterCount: 5_000))
+    }
+
+    func testRefreshIntervalIncreasesOnlyForRenderingLoad() {
+        XCTAssertEqual(
+            StreamPresentationBuffer.refreshIntervalNanoseconds(presentedCharacterCount: 0),
+            48_000_000
+        )
+        XCTAssertEqual(
+            StreamPresentationBuffer.refreshIntervalNanoseconds(presentedCharacterCount: 1_000),
+            64_000_000
+        )
+        XCTAssertEqual(
+            StreamPresentationBuffer.refreshIntervalNanoseconds(presentedCharacterCount: 5_000),
+            96_000_000
+        )
+    }
+
+    func testFinalDrainReturnsTheWholePendingTailImmediately() {
+        var buffer = StreamPresentationBuffer()
+        let finalText = String(repeating: "完整回复内容。", count: 40)
+        buffer.append(finalText)
+
+        XCTAssertEqual(buffer.drain(), finalText)
         XCTAssertFalse(buffer.hasPendingText)
     }
 }
