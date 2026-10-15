@@ -1777,45 +1777,80 @@ private struct ArtifactExportDocument: FileDocument {
     }
 }
 
+private enum MarkdownDisplayBlock: Identifiable {
+    case line(index: Int, text: String)
+    case table(ParsedMarkdownTable, lastLineIndex: Int)
+
+    var id: String {
+        switch self {
+        case .line(let index, _): "line-\(index)"
+        case .table(let table, _): "table-\(table.id)"
+        }
+    }
+}
+
 struct MarkdownContentView: View {
     let content: String
     var bodyFont: Font = .body
     var lineSpacing: CGFloat = 12
-    private var lines: [String] { content.components(separatedBy: .newlines) }
+    @State private var expandedTable: ParsedMarkdownTable?
+
+    private var blocks: [MarkdownDisplayBlock] {
+        let lines = content.components(separatedBy: .newlines)
+        var result: [MarkdownDisplayBlock] = []
+        var index = 0
+        while index < lines.count {
+            if let block = MarkdownTableParser.parse(lines: lines, startingAt: index) {
+                result.append(.table(block.table, lastLineIndex: block.lastLineIndex))
+                index = block.lastLineIndex + 1
+            } else {
+                result.append(.line(index: index, text: lines[index]))
+                index += 1
+            }
+        }
+        return result
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: lineSpacing) {
-            ForEach(Array(lines.enumerated()), id: \.offset) { item in
-                let index = item.offset
-                let line = item.element
-                if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    EmptyView()
-                } else if ["---", "***", "___"].contains(line.trimmingCharacters(in: .whitespaces)) {
-                    Rectangle().fill(OpenMusePalette.border).frame(height: 1)
-                } else if line.trimmingCharacters(in: .whitespaces).hasPrefix("|") {
-                    table(at: index)
-                } else if line.hasPrefix("### ") {
-                    markdownText(String(line.dropFirst(4))).font(bodyFont.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
-                } else if line.hasPrefix("## ") {
-                    markdownText(String(line.dropFirst(3))).font(.title3.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
-                } else if line.hasPrefix("# ") {
-                    markdownText(String(line.dropFirst(2))).font(.title2.weight(.bold)).foregroundStyle(OpenMusePalette.text)
-                } else if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("• ") {
-                    HStack(alignment: .top, spacing: 9) {
-                        Circle().fill(OpenMusePalette.blue).frame(width: 5, height: 5).padding(.top, 8)
-                        markdownText(String(line.dropFirst(2))).font(bodyFont).foregroundStyle(OpenMusePalette.text)
-                    }
-                } else if let numberedItem = numberedListItem(in: line) {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text(numberedItem.marker).font(bodyFont.weight(.medium)).foregroundStyle(OpenMusePalette.blue)
-                        markdownText(numberedItem.content).font(bodyFont).foregroundStyle(OpenMusePalette.text)
-                    }
-                } else {
-                    markdownText(line).font(bodyFont).foregroundStyle(OpenMusePalette.text)
+            ForEach(blocks) { block in
+                switch block {
+                case .line(_, let line): lineView(line)
+                case .table(let table, _): tableView(table)
                 }
             }
         }
         .textSelection(.enabled)
+        .sheet(item: $expandedTable) { table in
+            MarkdownTableDetailView(table: table)
+        }
+    }
+
+    @ViewBuilder
+    private func lineView(_ line: String) -> some View {
+        if line.trimmingCharacters(in: .whitespaces).isEmpty {
+            EmptyView()
+        } else if ["---", "***", "___"].contains(line.trimmingCharacters(in: .whitespaces)) {
+            Rectangle().fill(OpenMusePalette.border).frame(height: 1)
+        } else if line.hasPrefix("### ") {
+            markdownText(String(line.dropFirst(4))).font(bodyFont.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
+        } else if line.hasPrefix("## ") {
+            markdownText(String(line.dropFirst(3))).font(.title3.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
+        } else if line.hasPrefix("# ") {
+            markdownText(String(line.dropFirst(2))).font(.title2.weight(.bold)).foregroundStyle(OpenMusePalette.text)
+        } else if line.hasPrefix("- ") || line.hasPrefix("* ") || line.hasPrefix("• ") {
+            HStack(alignment: .top, spacing: 9) {
+                Circle().fill(OpenMusePalette.blue).frame(width: 5, height: 5).padding(.top, 8)
+                markdownText(String(line.dropFirst(2))).font(bodyFont).foregroundStyle(OpenMusePalette.text)
+            }
+        } else if let numberedItem = numberedListItem(in: line) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(numberedItem.marker).font(bodyFont.weight(.medium)).foregroundStyle(OpenMusePalette.blue)
+                markdownText(numberedItem.content).font(bodyFont).foregroundStyle(OpenMusePalette.text)
+            }
+        } else {
+            markdownText(line).font(bodyFont).foregroundStyle(OpenMusePalette.text)
+        }
     }
 
     private func numberedListItem(in line: String) -> (marker: String, content: String)? {
@@ -1826,49 +1861,100 @@ struct MarkdownContentView: View {
         return (String(line[...delimiter]), String(line[line.index(after: delimiter)...]).trimmingCharacters(in: .whitespaces))
     }
 
-    @ViewBuilder
-    private func table(at index: Int) -> some View {
-        if index == 0 || !lines[index - 1].trimmingCharacters(in: .whitespaces).hasPrefix("|") {
-            let rows = tableRows(startingAt: index)
-            ScrollView(.horizontal) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, cells in
-                        HStack(alignment: .top, spacing: 0) {
-                            ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
-                                markdownText(cell)
-                                    .font(rowIndex == 0 ? .caption.weight(.semibold) : .caption)
-                                    .foregroundStyle(OpenMusePalette.text)
-                                    .frame(width: 150, alignment: .leading)
-                                    .padding(10)
-                            }
-                        }
-                        .background(rowIndex == 0 ? OpenMusePalette.selected : OpenMusePalette.panel)
-                        Divider().overlay(OpenMusePalette.border)
-                    }
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 13))
-            }
-            .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 13))
-        }
-    }
-
-    private func tableRows(startingAt index: Int) -> [[String]] {
-        var rows: [[String]] = []
-        for line in lines.dropFirst(index) {
-            let clean = line.trimmingCharacters(in: .whitespaces)
-            guard clean.hasPrefix("|") else { break }
-            let cells = clean.split(separator: "|", omittingEmptySubsequences: false)
-                .dropFirst().dropLast().map { String($0).trimmingCharacters(in: .whitespaces) }
-            if !cells.isEmpty && !cells.allSatisfy({ $0.replacingOccurrences(of: ":", with: "").allSatisfy({ $0 == "-" }) }) {
-                rows.append(cells)
-            }
-        }
-        return rows
-    }
-
     private func markdownText(_ value: String) -> Text {
         if let parsed = try? AttributedString(markdown: value) { return Text(parsed) }
         return Text(value)
+    }
+
+    private func tableView(_ table: ParsedMarkdownTable) -> some View {
+        VStack(alignment: .trailing, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("表格").font(.caption.weight(.semibold)).foregroundStyle(OpenMusePalette.subtle)
+                Spacer(minLength: 4)
+                Text("左右滑动查看").font(.caption2).foregroundStyle(OpenMusePalette.subtle)
+                Button("展开表格") { expandedTable = table }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.plain)
+                    .foregroundStyle(OpenMusePalette.blue)
+                    .accessibilityIdentifier("expand-markdown-table-\(table.id)")
+            }
+            tableGrid(table, cellWidth: table.columnCount == 1 ? 300 : 180)
+                .accessibilityIdentifier("markdown-table-scroll-\(table.id)")
+        }
+        .padding(7)
+        .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 13))
+    }
+
+    @ViewBuilder
+    private func tableGrid(_ table: ParsedMarkdownTable, cellWidth: CGFloat) -> some View {
+        ScrollView(.horizontal) {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(table.rows.enumerated()), id: \.offset) { rowIndex, cells in
+                    HStack(alignment: .top, spacing: 0) {
+                        ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+                            markdownText(cell)
+                                .font(rowIndex == 0 ? .callout.weight(.semibold) : .callout)
+                                .foregroundStyle(OpenMusePalette.text)
+                                .lineLimit(nil)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(width: cellWidth, alignment: .leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                        }
+                    }
+                    .background(rowIndex == 0 ? OpenMusePalette.selected : OpenMusePalette.background)
+                    Rectangle().fill(OpenMusePalette.border).frame(height: 1)
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .scrollIndicators(.visible)
+    }
+}
+
+private struct MarkdownTableDetailView: View {
+    @Environment(\.dismiss) private var dismiss
+    let table: ParsedMarkdownTable
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("完整表格").font(.headline).foregroundStyle(OpenMusePalette.text)
+                Spacer()
+                Button("完成") { dismiss() }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(OpenMusePalette.blue)
+            }
+            ScrollView {
+                ScrollView(.horizontal) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(Array(table.rows.enumerated()), id: \.offset) { rowIndex, cells in
+                            HStack(alignment: .top, spacing: 0) {
+                                ForEach(Array(cells.enumerated()), id: \.offset) { _, cell in
+                                    let text = (try? AttributedString(markdown: cell)).map(Text.init) ?? Text(cell)
+                                    text
+                                        .font(rowIndex == 0 ? .body.weight(.semibold) : .body)
+                                        .foregroundStyle(OpenMusePalette.text)
+                                        .lineLimit(nil)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .frame(width: table.columnCount == 1 ? 340 : 260, alignment: .leading)
+                                        .padding(14)
+                                }
+                            }
+                            .background(rowIndex == 0 ? OpenMusePalette.selected : OpenMusePalette.panel)
+                            Rectangle().fill(OpenMusePalette.border).frame(height: 1)
+                        }
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                }
+                .scrollIndicators(.visible)
+            }
+            .accessibilityIdentifier("expanded-markdown-table-scroll-\(table.id)")
+        }
+        .padding(18)
+        .background(OpenMusePalette.background.ignoresSafeArea())
+        .presentationDetents([.large])
     }
 }
 

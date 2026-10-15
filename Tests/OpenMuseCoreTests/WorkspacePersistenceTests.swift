@@ -3,6 +3,19 @@ import XCTest
 import CSQLite
 @testable import OpenMuseCore
 
+private func encodedJSONValue<T: Encodable>(_ value: T) throws -> Data {
+    try JSONEncoder().encode(value)
+}
+
+private func jsonObjectWithReversedKeys(_ fields: [String: Data]) throws -> Data {
+    let members = try fields.keys.sorted(by: >).map { key -> String in
+        let encodedKey = try encodedJSONValue(key)
+        let encodedValue = try XCTUnwrap(fields[key])
+        return "\(String(decoding: encodedKey, as: UTF8.self)):\(String(decoding: encodedValue, as: UTF8.self))"
+    }
+    return Data(("{" + members.joined(separator: ",") + "}").utf8)
+}
+
 private actor BridgeCancellationProbe {
     private var didStart = false
     private var didCancel = false
@@ -1215,10 +1228,23 @@ final class WorkspacePersistenceTests: XCTestCase {
         let conversation = ConversationRecord(id: "archive-cleanup-conversation", title: "旅行计划")
         try store.save(conversation, kind: RecordKind.conversation, id: conversation.id, revision: 1, appendRevision: true)
         let originalRevision = try XCTUnwrap(try store.exportSnapshot().revisions.first)
-        let sortedEncoder = JSONEncoder()
-        sortedEncoder.outputFormatting = [.sortedKeys]
-        let reorderedPayload = try sortedEncoder.encode(conversation)
+        var fields: [String: Data] = [
+            "id": try encodedJSONValue(conversation.id),
+            "title": try encodedJSONValue(conversation.title),
+            "createdAt": try encodedJSONValue(conversation.createdAt),
+            "updatedAt": try encodedJSONValue(conversation.updatedAt)
+        ]
+        if let value = conversation.parentConversationID { fields["parentConversationID"] = try encodedJSONValue(value) }
+        if let value = conversation.importedFrom { fields["importedFrom"] = try encodedJSONValue(value) }
+        if let value = conversation.importedSourceID { fields["importedSourceID"] = try encodedJSONValue(value) }
+        if let value = conversation.isPrimary { fields["isPrimary"] = try encodedJSONValue(value) }
+        if let value = conversation.isArchived { fields["isArchived"] = try encodedJSONValue(value) }
+        let reorderedPayload = try jsonObjectWithReversedKeys(fields)
         XCTAssertNotEqual(originalRevision.payload, reorderedPayload)
+        XCTAssertEqual(
+            try WorkspacePortableArchive.canonicalPayload(originalRevision.payload),
+            try WorkspacePortableArchive.canonicalPayload(reorderedPayload)
+        )
         var rawDatabase: OpaquePointer?
         XCTAssertEqual(sqlite3_open(directory.appendingPathComponent("state.sqlite").path, &rawDatabase), SQLITE_OK)
         defer { if let rawDatabase { sqlite3_close(rawDatabase) } }
@@ -1256,10 +1282,14 @@ final class WorkspacePersistenceTests: XCTestCase {
         let store = try SQLiteStore(path: directory.appendingPathComponent("state.sqlite"))
         let document = WorkspaceDocument(path: "USER.md", title: "用户记忆", content: "偏好慢节奏旅行", revision: 1, updatedAt: Date(timeIntervalSince1970: 1_800_000_000))
         try store.save(document, kind: RecordKind.document, id: document.id, revision: 1, appendRevision: true)
-        let defaultPayload = try JSONEncoder().encode(document)
-        let sortedEncoder = JSONEncoder()
-        sortedEncoder.outputFormatting = [.sortedKeys]
-        let reorderedPayload = try sortedEncoder.encode(document)
+        let defaultPayload = try encodedJSONValue(document)
+        let reorderedPayload = try jsonObjectWithReversedKeys([
+            "path": try encodedJSONValue(document.path),
+            "title": try encodedJSONValue(document.title),
+            "content": try encodedJSONValue(document.content),
+            "revision": try encodedJSONValue(document.revision),
+            "updatedAt": try encodedJSONValue(document.updatedAt)
+        ])
         XCTAssertNotEqual(defaultPayload, reorderedPayload)
 
         let remote = SyncEnvelope(
@@ -3580,7 +3610,8 @@ final class WorkspacePersistenceTests: XCTestCase {
         for _ in 0..<100 where model.liveResponse.isEmpty {
             try await Task.sleep(nanoseconds: 2_000_000)
         }
-        XCTAssertEqual(model.liveResponse, "先从一件小事开始")
+        XCTAssertFalse(model.liveResponse.isEmpty)
+        XCTAssertTrue("先从一件小事开始".hasPrefix(model.liveResponse))
         XCTAssertEqual(model.activeActivity?.stage, "正在生成回复")
         model.cancelCurrentResponse()
         for _ in 0..<100 where model.isSending {

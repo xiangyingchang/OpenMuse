@@ -77,6 +77,9 @@ public final class OpenMuseAppModel: ObservableObject {
     @Published public private(set) var maintenancePreferences: MaintenancePreferences
     @Published public private(set) var isSending = false
     @Published public private(set) var liveResponse = ""
+    @Published public private(set) var liveResponseMessageID: String?
+    @Published public private(set) var liveResponseConversationID: String?
+    @Published public private(set) var canShowLiveResponseFastForward = false
     @Published public private(set) var isSyncing = false
     @Published public private(set) var syncConflictCount = 0
     @Published public private(set) var syncConflicts: [SyncConflictRecord] = []
@@ -98,6 +101,12 @@ public final class OpenMuseAppModel: ObservableObject {
 
     private let database: SQLiteStore?
     private var liveResponseLeakGuard = ModelResponseLeakGuard()
+    private var liveResponsePresentationBuffer = StreamPresentationBuffer()
+    private var liveResponsePresentationTask: Task<Void, Never>?
+    private var liveResponsePresentationTaskID: UUID?
+    private var liveResponseStreamFinished = false
+    private var liveResponsePresentationDrained = false
+    private var liveResponsePresentationBypassed = false
     private let workspace: WorkspaceFiles?
     private let attachmentStore: AttachmentStore?
     private let artifactAssetStore: ArtifactAssetStore?
@@ -1849,6 +1858,7 @@ public final class OpenMuseAppModel: ObservableObject {
         #endif
         isSending = true
         resetLiveResponseStream()
+        liveResponseConversationID = conversation.id
         lastReplyUsage = nil
         statusText = "正在整理思路…"
         let memoryNotice = captureExplicitMemory(from: userMessage)
@@ -1997,7 +2007,6 @@ public final class OpenMuseAppModel: ObservableObject {
             // generating this reply. Continue from that newer task revision.
             executionTask = executionTasks.first(where: { $0.id == activity.id }) ?? executionTask
             if let usage = lastReplyUsage { recordModelUsage(usage, configuration: modelConfiguration) }
-            liveResponse = ""
             updateActivityStep(activity.id, index: currentStepIndex, status: "completed", detail: "模型已返回回复。\(contextDetail)", database: database)
             currentStepIndex = 3
             updateActivityStep(activity.id, index: currentStepIndex, status: "running", detail: "正在保存回复并检查是否生成旅行成果。", database: database)
@@ -2010,6 +2019,7 @@ public final class OpenMuseAppModel: ObservableObject {
                 timeZoneIdentifier: messageTimeZoneIdentifier
             )
             try database.save(answer, kind: RecordKind.message, id: answer.id)
+            retainLiveResponseUntilPresentationCompletes(messageID: answer.id)
             messages.append(answer)
             let artifactStatus = goal.flatMap { goal in
                 (goal.goalKind == "travel" || goal.goalKind == nil && goal.title.contains("旅行"))
@@ -2034,7 +2044,7 @@ public final class OpenMuseAppModel: ObservableObject {
             let completionNotices = [goalCapture.notice, memoryNotice, progressStatus, artifactStatus].compactMap { $0 }
             statusText = completionNotices.isEmpty ? routeStatus : completionNotices.joined(separator: "\n")
         } catch is CancellationError {
-            liveResponse = ""
+            discardLiveResponsePresentation()
             if let executionTask { finishExecutionTask(executionTask, status: "cancelled", database: database) }
             updateActivityStep(activity.id, index: currentStepIndex, status: "cancelled", detail: "用户停止等待本轮回复。", database: database)
             finishActivity(activity.id, status: "cancelled", stage: "已停止等待回复。", database: database)
@@ -2042,7 +2052,7 @@ public final class OpenMuseAppModel: ObservableObject {
             statusText = (["已停止回复。"] + disclosures).joined(separator: "\n\n")
         } catch {
             if Task.isCancelled {
-                liveResponse = ""
+                discardLiveResponsePresentation()
                 if let executionTask { finishExecutionTask(executionTask, status: "cancelled", database: database) }
                 updateActivityStep(activity.id, index: currentStepIndex, status: "cancelled", detail: "用户停止等待本轮回复。", database: database)
                 finishActivity(activity.id, status: "cancelled", stage: "已停止等待回复。", database: database)
@@ -2052,7 +2062,7 @@ public final class OpenMuseAppModel: ObservableObject {
                 return
             }
             let message = error.localizedDescription
-            liveResponse = ""
+            discardLiveResponsePresentation()
             if let executionTask { finishExecutionTask(executionTask, status: "failed", database: database) }
             let disclosures = [goalCapture.notice, memoryNotice, personaRevision.map(personaChangeDisclosure)].compactMap { $0 }
             let failureContent = ([message] + disclosures).joined(separator: "\n\n")
@@ -2959,18 +2969,136 @@ public final class OpenMuseAppModel: ObservableObject {
     }
 
     private func resetLiveResponseStream() {
+        liveResponsePresentationTask?.cancel()
+        liveResponsePresentationTask = nil
+        liveResponsePresentationTaskID = nil
+        liveResponsePresentationBuffer = StreamPresentationBuffer()
+        liveResponseStreamFinished = false
+        liveResponsePresentationDrained = false
+        liveResponsePresentationBypassed = false
+        liveResponseMessageID = nil
+        liveResponseConversationID = nil
+        canShowLiveResponseFastForward = false
         liveResponse = ""
         liveResponseLeakGuard = ModelResponseLeakGuard()
     }
 
     private func appendLiveResponse(_ fragment: String) {
-        liveResponse += liveResponseLeakGuard.append(fragment)
-        if liveResponseLeakGuard.didDetectInternalMarker { liveResponse = "" }
+        let safeText = liveResponseLeakGuard.append(fragment)
+        guard !liveResponseLeakGuard.didDetectInternalMarker else {
+            discardLiveResponsePresentation()
+            return
+        }
+        enqueueLiveResponseText(safeText)
     }
 
     private func finishLiveResponseStream() {
-        liveResponse += liveResponseLeakGuard.finish()
-        if liveResponseLeakGuard.didDetectInternalMarker { liveResponse = "" }
+        let safeText = liveResponseLeakGuard.finish()
+        guard !liveResponseLeakGuard.didDetectInternalMarker else {
+            discardLiveResponsePresentation()
+            return
+        }
+        enqueueLiveResponseText(safeText)
+        liveResponseStreamFinished = true
+        if liveResponsePresentationBypassed {
+            completeLiveResponsePresentation()
+        } else {
+            startLiveResponsePresentationIfNeeded()
+        }
+    }
+
+    private func enqueueLiveResponseText(_ text: String) {
+        guard !text.isEmpty else { return }
+        if liveResponsePresentationBypassed {
+            liveResponse += text
+            return
+        }
+        liveResponsePresentationBuffer.append(text)
+        canShowLiveResponseFastForward = true
+        startLiveResponsePresentationIfNeeded()
+    }
+
+    public func showLiveResponseImmediately() {
+        liveResponsePresentationBypassed = true
+        liveResponse += liveResponsePresentationBuffer.drain()
+        liveResponsePresentationTask?.cancel()
+        liveResponsePresentationTask = nil
+        liveResponsePresentationTaskID = nil
+        canShowLiveResponseFastForward = false
+        if liveResponseStreamFinished { completeLiveResponsePresentation() }
+    }
+
+    private func startLiveResponsePresentationIfNeeded() {
+        guard liveResponsePresentationTask == nil,
+              !liveResponsePresentationBypassed,
+              !liveResponsePresentationDrained else { return }
+        let taskID = UUID()
+        liveResponsePresentationTaskID = taskID
+        liveResponsePresentationTask = Task { @MainActor [weak self] in
+            await self?.presentLiveResponse(taskID: taskID)
+        }
+    }
+
+    private func presentLiveResponse(taskID: UUID) async {
+        defer {
+            if liveResponsePresentationTaskID == taskID {
+                liveResponsePresentationTask = nil
+                liveResponsePresentationTaskID = nil
+            }
+        }
+
+        while !Task.isCancelled, liveResponsePresentationTaskID == taskID {
+            if let unit = liveResponsePresentationBuffer.takeNextUnit(streamIsFinished: liveResponseStreamFinished) {
+                liveResponse += unit.text
+                canShowLiveResponseFastForward = liveResponsePresentationBuffer.hasPendingText || !liveResponseStreamFinished
+                do { try await Task.sleep(nanoseconds: unit.delayNanoseconds) }
+                catch { return }
+                continue
+            }
+
+            if liveResponseStreamFinished {
+                completeLiveResponsePresentation()
+                return
+            }
+
+            canShowLiveResponseFastForward = liveResponsePresentationBuffer.hasPendingText
+            do { try await Task.sleep(nanoseconds: 40_000_000) }
+            catch { return }
+        }
+    }
+
+    private func completeLiveResponsePresentation() {
+        liveResponsePresentationDrained = true
+        canShowLiveResponseFastForward = false
+        if liveResponseMessageID != nil {
+            liveResponseMessageID = nil
+            liveResponse = ""
+            liveResponseConversationID = nil
+        }
+    }
+
+    private func retainLiveResponseUntilPresentationCompletes(messageID: String) {
+        if liveResponsePresentationDrained {
+            liveResponseMessageID = nil
+            liveResponse = ""
+            liveResponseConversationID = nil
+        } else {
+            liveResponseMessageID = messageID
+        }
+    }
+
+    private func discardLiveResponsePresentation() {
+        liveResponsePresentationTask?.cancel()
+        liveResponsePresentationTask = nil
+        liveResponsePresentationTaskID = nil
+        liveResponsePresentationBuffer = StreamPresentationBuffer()
+        liveResponseStreamFinished = true
+        liveResponsePresentationDrained = true
+        liveResponsePresentationBypassed = true
+        canShowLiveResponseFastForward = false
+        liveResponseMessageID = nil
+        liveResponseConversationID = nil
+        liveResponse = ""
     }
 
     private func recordModelUsage(_ usage: ModelUsage, configuration: ModelConfiguration) {

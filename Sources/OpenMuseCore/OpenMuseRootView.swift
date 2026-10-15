@@ -324,7 +324,9 @@ private struct ChatHomeView: View {
                                 welcome.frame(minHeight: scrollGeometry.size.height, alignment: .center)
                             }
                             ForEach(ChatTimeline.entries(
-                                messages: model.messages,
+                                messages: model.messages.filter {
+                                    $0.id != (model.liveResponseConversationID == model.currentConversationID ? model.liveResponseMessageID : nil)
+                                },
                                 artifactGroups: ArtifactPresentationGroup.make(
                                     from: model.artifacts.filter { $0.conversationID == model.currentConversationID }
                                 )
@@ -338,7 +340,8 @@ private struct ChatHomeView: View {
                                         .id("artifact-\(group.id)")
                                 }
                             }
-                            if !model.liveResponse.isEmpty {
+                            if !model.liveResponse.isEmpty,
+                               model.liveResponseConversationID == model.currentConversationID {
                                 MessageBubble(message: MessageRecord(
                                     id: "live-response-\(model.currentConversationID)",
                                     conversationID: model.currentConversationID,
@@ -348,7 +351,9 @@ private struct ChatHomeView: View {
                                 ), model: model)
                                 .id("live-response")
                             }
-                            if model.isSending && model.liveResponse.isEmpty {
+                            if model.isSending,
+                               model.liveResponseConversationID == model.currentConversationID,
+                               model.liveResponse.isEmpty {
                                 HStack(spacing: 9) {
                                     OpenMuseOrb(isActive: true, size: 22)
                                     Text(model.activeActivity?.stage ?? "我在整理思路")
@@ -379,6 +384,7 @@ private struct ChatHomeView: View {
                         withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("chat-bottom", anchor: .bottom) }
                     }
                     .onChange(of: model.liveResponse) { _, _ in
+                        guard model.liveResponseConversationID == model.currentConversationID else { return }
                         guard !showScrollToLatest else { return }
                         proxy.scrollTo("chat-bottom", anchor: .bottom)
                     }
@@ -510,8 +516,18 @@ private struct MessageBubble: View {
             if message.role == .assistant { OpenMuseOrb(isActive: false, size: 23).padding(.top, 2) }
             if message.role == .assistant {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(message.status == "failed" ? "这次没有完成" : "OpenMuse")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(message.status == "failed" ? OpenMusePalette.warning : OpenMusePalette.subtle)
+                    HStack(spacing: 8) {
+                        Text(message.status == "failed" ? "这次没有完成" : "OpenMuse")
+                            .font(.caption2.weight(.semibold)).foregroundStyle(message.status == "failed" ? OpenMusePalette.warning : OpenMusePalette.subtle)
+                        Spacer(minLength: 4)
+                        if message.status == "streaming", model.canShowLiveResponseFastForward {
+                            Button("显示完整") { model.showLiveResponseImmediately() }
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(OpenMusePalette.blue)
+                                .buttonStyle(.plain)
+                                .accessibilityIdentifier("show-live-response-immediately")
+                        }
+                    }
                     Group {
                         if message.status == "failed" {
                             Text(message.content)
