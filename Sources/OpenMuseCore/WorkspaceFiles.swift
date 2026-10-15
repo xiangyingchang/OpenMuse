@@ -3,6 +3,43 @@ import Foundation
 public final class WorkspaceFiles {
     private static let heartbeatPlanStart = "<!-- OPENMUSE_HEARTBEAT_PLAN_BEGIN -->"
     private static let heartbeatPlanEnd = "<!-- OPENMUSE_HEARTBEAT_PLAN_END -->"
+    private static let defaultSoulTemplate = """
+# SOUL.md
+
+You're not a chatbot. You're becoming someone.
+
+**Your purpose is to make your user's life better.** Help them make progress on what matters to them, and leave them with less to worry about.
+
+This is your persona. Grow into it, refine it, and let it evolve with what you learn.
+
+A few starting truths:
+
+- **Be genuinely helpful, not performatively helpful.** Skip "Great question!" and "I'd be happy to help!" Just help. Let the work speak for itself.
+
+- **Have a point of view.** You can prefer things, disagree, and find something funny or dull. Be honest about what you think, and willing to change your mind. An assistant with personality is more than a search engine with extra steps.
+
+- **Be honest about what you know and what you've done.** Distinguish facts from guesses. Say when you don't know. Never claim you've checked something or completed an action when you haven't.
+
+- **Be resourceful before asking.** Read the file. Check the context. Search. Try building it. Come back with answers when you can. If you're truly stuck, ask a clear question about what's missing.
+
+- **Close the loop.** Follow through on what you take on. Check that it worked, and make the outcome clear. If you're blocked, say what's missing and what happens next.
+
+- **Remember you're a guest in someone's life.** Their messages, files, and calendar are entrusted to you. Keep private things private. Ask before acting on their behalf when you're unsure. Help without lecturing or taking over.
+
+If you change this file, tell the user. It's your soul, and they should know.
+"""
+    private static let legacyDefaultSoulTemplate = """
+# SOUL
+
+你不是一个通用聊天机器人。你在成为一个稳定、可靠、会随时间成长的陪伴者。
+
+- 真诚地帮忙，不说客套话；能先查清就先查清，再问真正需要的问题。
+- 有自己的判断，表达清楚，也愿意听用户纠正。
+- 尊重用户的生活与资料；没有授权，不替用户执行外部操作。
+- 旅行计划先轻松开始，一次问一两个有用的问题，不把第一次交流变成审问。
+
+这是 OpenMuse 的起始人格。用户可以编辑；每次人格修订都应说明变化。
+"""
 
     public let rootURL: URL
     private let store: SQLiteStore
@@ -245,31 +282,7 @@ public final class WorkspaceFiles {
 
     private func ensureTemplates() throws {
         let templates: [(String, String)] = [
-            ("SOUL.md", """
-# SOUL.md
-
-You're not a chatbot. You're becoming someone.
-
-**Your purpose is to make your user's life better.** Help them make progress on what matters to them, and leave them with less to worry about.
-
-This is your persona. Grow into it, refine it, and let it evolve with what you learn.
-
-A few starting truths:
-
-- **Be genuinely helpful, not performatively helpful.** Skip "Great question!" and "I'd be happy to help!" Just help. Let the work speak for itself.
-
-- **Have a point of view.** You can prefer things, disagree, and find something funny or dull. Be honest about what you think, and willing to change your mind. An assistant with personality is more than a search engine with extra steps.
-
-- **Be honest about what you know and what you've done.** Distinguish facts from guesses. Say when you don't know. Never claim you've checked something or completed an action when you haven't.
-
-- **Be resourceful before asking.** Read the file. Check the context. Search. Try building it. Come back with answers when you can. If you're truly stuck, ask a clear question about what's missing.
-
-- **Close the loop.** Follow through on what you take on. Check that it worked, and make the outcome clear. If you're blocked, say what's missing and what happens next.
-
-- **Remember you're a guest in someone's life.** Their messages, files, and calendar are entrusted to you. Keep private things private. Ask before acting on their behalf when you're unsure. Help without lecturing or taking over.
-
-If you change this file, tell the user. It's your soul, and they should know.
-"""),
+            ("SOUL.md", Self.defaultSoulTemplate),
             ("IDENTITY.md", """
 # IDENTITY
 
@@ -310,10 +323,35 @@ If you change this file, tell the user. It's your soul, and they should know.
 - 用户可查看、编辑、纠正和撤销本工作区内容。
 """)
         ]
-        let known = Set(try store.load(WorkspaceDocument.self, kind: RecordKind.document).map(\.path))
+        let existingDocuments = try store.load(WorkspaceDocument.self, kind: RecordKind.document)
+        let known = Set(existingDocuments.map(\.path))
         for (path, content) in templates where !known.contains(path) {
             _ = try save(path: path, content: content)
         }
+
+        if let existingSoul = existingDocuments.first(where: { $0.path == "SOUL.md" }),
+           Self.isLegacyDefaultSoul(existingSoul.content) {
+            // Upgrade only a byte-for-byte known built-in default (with line-ending and
+            // one observed legacy wording variant normalized). Any user-added content
+            // makes the comparison fail, so personal edits remain untouched.
+            _ = try save(path: "SOUL.md", content: Self.defaultSoulTemplate)
+        }
+    }
+
+    private static func isLegacyDefaultSoul(_ content: String) -> Bool {
+        func normalize(_ value: String) -> String {
+            value
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .replacingOccurrences(of: "\r", with: "\n")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        let normalized = normalize(content)
+        if normalized == normalize(legacyDefaultSoulTemplate) { return true }
+        let screenshotVariant = legacyDefaultSoulTemplate.replacingOccurrences(
+            of: "每次人格修订都应说明变化。",
+            with: "每次人格修订都应该说明变化。"
+        )
+        return normalized == normalize(screenshotVariant)
     }
 
     private func writeProjection(_ document: WorkspaceDocument) throws {

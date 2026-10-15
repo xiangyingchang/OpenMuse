@@ -497,6 +497,55 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertEqual(try reopened.document(path: "SOUL.md")?.content, custom)
     }
 
+    func testLegacyDefaultSoulMigratesToApprovedPersonaAndPreservesCustomEdits() throws {
+        let legacy = """
+        # SOUL
+
+        你不是一个通用聊天机器人。你在成为一个稳定、可靠、会随时间成长的陪伴者。
+
+        - 真诚地帮忙，不说客套话；能先查清就先查清，再问真正需要的问题。
+        - 有自己的判断，表达清楚，也愿意听用户纠正。
+        - 尊重用户的生活与资料；没有授权，不替用户执行外部操作。
+        - 旅行计划先轻松开始，一次问一两个有用的问题，不把第一次交流变成审问。
+
+        这是 OpenMuse 的起始人格。用户可以编辑；每次人格修订都应说明变化。
+        """
+        let screenshotVariant = legacy.replacingOccurrences(
+            of: "每次人格修订都应说明变化。",
+            with: "每次人格修订都应该说明变化。"
+        )
+
+        for (index, oldContent) in [legacy, screenshotVariant].enumerated() {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseLegacySoul-\(UUID().uuidString)", isDirectory: true)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let store = try SQLiteStore(path: directory.appendingPathComponent("state.sqlite"))
+            let previous = WorkspaceDocument(path: "SOUL.md", title: "SOUL", content: oldContent, revision: index == 0 ? 1 : 2)
+            try store.save(previous, kind: RecordKind.document, id: previous.path, revision: previous.revision, appendRevision: true)
+
+            let workspace = try WorkspaceFiles(store: store, rootURL: directory.appendingPathComponent("workspace", isDirectory: true))
+            let migrated = try XCTUnwrap(workspace.document(path: "SOUL.md"))
+            XCTAssertEqual(migrated.revision, previous.revision + 1)
+            XCTAssertTrue(migrated.content.hasPrefix("# SOUL.md\n\nYou're not a chatbot. You're becoming someone."))
+            XCTAssertTrue(migrated.content.contains("**Your purpose is to make your user's life better.**"))
+            XCTAssertEqual(try String(contentsOf: directory.appendingPathComponent("workspace/SOUL.md"), encoding: .utf8), migrated.content)
+            let history = try store.revisions(WorkspaceDocument.self, kind: RecordKind.document, objectID: "SOUL.md")
+            XCTAssertTrue(history.contains(where: { $0.content == oldContent }), "Migration must keep the prior persona revision.")
+            XCTAssertEqual(history.last?.content, migrated.content)
+        }
+
+        let customDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseCustomizedLegacySoul-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: customDirectory) }
+        let customStore = try SQLiteStore(path: customDirectory.appendingPathComponent("state.sqlite"))
+        let customized = legacy + "\n\n## 用户补充\n请保留这段自定义内容。\n"
+        let customDocument = WorkspaceDocument(path: "SOUL.md", title: "SOUL", content: customized, revision: 2)
+        try customStore.save(customDocument, kind: RecordKind.document, id: customDocument.path, revision: customDocument.revision, appendRevision: true)
+
+        let customWorkspace = try WorkspaceFiles(store: customStore, rootURL: customDirectory.appendingPathComponent("workspace", isDirectory: true))
+        let preserved = try XCTUnwrap(customWorkspace.document(path: "SOUL.md"))
+        XCTAssertEqual(preserved.revision, customDocument.revision)
+        XCTAssertEqual(preserved.content, customized, "A legacy template with user-authored additions must not be overwritten.")
+    }
+
     func testPersonaRefinementIsNarrowSourceLinkedSyncedAndUndoable() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMusePersona-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }

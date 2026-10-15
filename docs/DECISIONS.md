@@ -215,3 +215,7 @@ Agent 删除能力由当前用户的明确请求门控，执行时还需用本�
 动态从内容发现开始：iPhone 每次打开动态页时，若距上次检索至少六小时则自动通过持久浏览器搜索；用户也可手动刷新。查询不发送聊天记录，只从有效非敏感的已确认兴趣、进行中目标标题和编辑后的动态说明生成有限查询词。搜索结果以真实 HTTPS 标题、域名、摘要及原文链接形成卡片；RSS/Atom 折叠为可选来源设置。Mac 目前只展示已同步卡片或拉取用户添加的订阅，因为 Mac app 没有 iPhone 的持久浏览器运行时。公开网页索引可能不包含登录后内容或所有帖子，不能称为 X、Reddit、小红书或微信原生连接器。官方接口范围需单独评估：[X 最近搜索](https://github.com/xdevplatform/docs/blob/main/x-api/posts/search/quickstart/recent-search.mdx)、[Reddit Devvit API](https://developers.reddit.com/docs/capabilities/server/reddit-api)、[小红书开放平台](https://openaccount.xiaohongshu.com/docs/api-reference)。
 
 iOS 主聊右上菜单不再重复“新对话”，保留“新建旁聊”；活动页以不透明背景和大尺寸滚动区避开顶部遮挡。首次初始化才写入新的 `SOUL.md` 模板。Muse 式 About 说明单独显示在编辑器，用户原文不被存入人格文件正文；既有用户文件不自动迁移或覆盖。实现及测试状态见 [T89](ITERATIONS.md#t89)。
+
+## 2026-10-15 旧版内置 SOUL 模板迁移（D55）
+
+升级时若 `SOUL.md` 与已知旧版 OpenMuse 中文内置默认稿全文一致，可将其更新为用户确认的英文模板，并保存为新的文档修订，保留此前内容与历史。截图中确认的旧模板末句“每次人格修订都应该说明变化”作为唯一已知文案变体接受。若文件含额外文字、或无法精确匹配已知旧模板，则不自动改动，避免覆盖用户自定义内容。这是 D54“既有用户文件不自动迁移”的窄范围例外；只迁移可证明为旧内置默认的文件。详情见 [T90](ITERATIONS.md#t90)。
