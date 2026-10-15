@@ -12,6 +12,31 @@ private enum ToolApprovalDecision {
     case cancelled
 }
 
+enum GoalDeletionIntentPolicy {
+    static func allowsDeletion(in messages: [TranscriptMessage]) -> Bool {
+        allowsDeletion(in: messages.last(where: { $0.role == "user" })?.content)
+    }
+
+    static func allowsDeletion(in messages: [MessageRecord]) -> Bool {
+        allowsDeletion(in: messages.last(where: { $0.role == .user })?.content)
+    }
+
+    private static func allowsDeletion(in rawText: String?) -> Bool {
+        guard let text = rawText?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return false }
+        let value = text.lowercased()
+        let negations = ["不要删除", "别删除", "不要移除", "别移除", "不要删", "别删", "别把", "不要把", "不想删除", "不想删", "不想把", "不希望删除", "不希望删", "不删除", "先不删", "先别把", "不用删除", "不用删", "无需删除", "不必删除", "不是要删除", "不是要删", "不是让你删除", "不是让你删", "没让你删除", "没让你删", "没有删除工具", "没有删除的工具", "不能删除", "无法删除", "怎么删除", "如何删除", "怎么删", "如何删", "能不能删除", "是否删除", "删除吗", "删除？", "删除?"]
+        guard !negations.contains(where: value.contains),
+              !value.contains("如果删除"), !value.contains("假如删除") else { return false }
+        let asksRatherThanActs = ["为什么", "怎么", "如何", "能否", "能不能", "可不可以", "可以吗", "是否可以", "有没有", "删除工具", "删除能力", "删除功能", "支持删除", "以后有", "增加删除"]
+        guard !asksRatherThanActs.contains(where: value.contains) else { return false }
+        let hasDeleteVerb = ["删除", "删掉", "移除", "清掉"].contains(where: value.contains)
+        let identifiesTarget = ["目标", "任务", "重复", "它", "这条", "其中一个", "一个"].contains(where: value.contains)
+        let explicitRequestFrame = ["请", "麻烦", "帮我", "替我", "把", "我想删除", "我想删", "我希望删除", "不需要重复的目标", "删除一个", "删一个", "删掉", "移除", "清掉", "清除"]
+        let startsWithDeleteCommand = ["删除", "删掉", "移除", "清掉", "清除"].contains(where: value.hasPrefix)
+        return hasDeleteVerb && identifiesTarget && (startsWithDeleteCommand || explicitRequestFrame.contains(where: value.contains))
+    }
+}
+
 @MainActor
 public final class OpenMuseAppModel: ObservableObject {
     @Published public var selectedSection: WorkspaceSection = .chat
@@ -29,6 +54,8 @@ public final class OpenMuseAppModel: ObservableObject {
     @Published public private(set) var feedFeedback: [FeedFeedbackRecord] = []
     @Published public private(set) var feedInstruction = OpenMuseAppModel.defaultFeedInstruction
     @Published public private(set) var isRefreshingFeeds = false
+    @Published public private(set) var feedDiscoveryStatus: String?
+    @Published public private(set) var lastFeedDiscoveryAt: Date? = UserDefaults.standard.object(forKey: "OpenMuse.FeedDiscovery.lastAt") as? Date
     @Published public private(set) var memoryClaims: [MemoryClaimRecord] = []
     @Published public private(set) var sources: [SourceRecord] = []
     @Published public private(set) var importRecords: [ImportRecord] = []
@@ -85,6 +112,16 @@ public final class OpenMuseAppModel: ObservableObject {
     private let maintenanceRuntime: ModelRuntime
     private let permitsAutomaticMaintenance: Bool
     public static let defaultFeedInstruction = "根据我最近在准备的旅行，分享我可能感兴趣的路线灵感和地方故事。"
+    private static let feedDiscoveryLastAtKey = "OpenMuse.FeedDiscovery.lastAt"
+
+    public var canDiscoverFeedContent: Bool { phoneBrowserRuntime != nil }
+
+    public var shouldAutoRefreshFeeds: Bool {
+        guard !ProcessInfo.processInfo.arguments.contains("-openmuse-ui-test-workspace") else { return false }
+        guard canDiscoverFeedContent else { return false }
+        guard let lastFeedDiscoveryAt else { return true }
+        return Date.now.timeIntervalSince(lastFeedDiscoveryAt) >= 6 * 60 * 60
+    }
     public let workspaceURL: URL?
     private let agentWorkspaceRootURL: URL?
     private var draftsByConversation: [String: String] = [:]
@@ -2160,6 +2197,7 @@ public final class OpenMuseAppModel: ObservableObject {
                 configuration: modelConfiguration,
                 apiKey: key,
                 tools: Self.phoneAgentToolDefinitions
+                    + (GoalDeletionIntentPolicy.allowsDeletion(in: messages) ? [Self.phoneAgentGoalDeleteToolDefinition] : [])
                     + (phoneBrowserRuntime == nil ? [] : Self.phoneAgentBrowserToolDefinitions)
                     + (phoneSandboxRuntime == nil ? [] : [Self.phoneAgentShellToolDefinition]),
                 execute: { [weak self, agentWorkspace] invocation in
@@ -2265,6 +2303,13 @@ public final class OpenMuseAppModel: ObservableObject {
         )
     ]
 
+    private static let phoneAgentGoalDeleteToolDefinition = ModelToolDefinition(
+        name: "openmuse_phone_delete_goal",
+        description: "删除一个用户明确要求删除的 OpenMuse 结构化目标。仅在用户本轮明确要求删除/移除目标时使用；必须先调用 openmuse_phone_list_goals，依据稳定 goal_id 选择唯一目标。若用户要求删重复项，优先删除来源为推断且置信度较低的一项；若无法唯一判断，先向用户询问，不得猜测。删除会移除该目标、相关提醒、进展和目标建议，并保留聊天记录；有正在执行的关联任务时会拒绝删除。",
+        parameters: ["goal_id": ModelToolParameter(type: "string", description: "从目标列表读取的稳定目标 ID。")],
+        required: ["goal_id"]
+    )
+
     private static let phoneAgentShellToolDefinition = ModelToolDefinition(
         name: "openmuse_phone_run_ish_command",
         description: "按任务需要在 iPhone 内嵌的 Alpine Linux/iSH 隔离 guest 中执行一条命令；普通命令和出站网络不逐次请求审批。guest 可访问互联网、当前对话的可写临时工作区、附件只读副本及自己的 Alpine rootfs；不能访问 Mac、Keychain、SQLite、正式记忆或其他 App 文件。`openmuse-browser-use <action>` 与 browser_use 共享当前对话的持久浏览器标签。闹钟任务用 `openmuse-alarm set --time HH:mm|ISO8601 --label '标签'`，查看用 `openmuse-alarm list`，取消用 `openmuse-alarm cancel <UUID|all>`；计时器用 `openmuse-alarm timer --duration 5m --label '标签'`。这组原生命令在 iOS 26+ 使用 AlarmKit，可设一次/重复闹钟与计时器；首次由 iOS 请求一次闹钟授权，后续不增加 OpenMuse 审批。HH:mm 按 iPhone 当前时区解释，并选择下一次该时间。运行最多 45 秒，输出最多 12 KB。命令可能把 guest 可读内容发送到互联网或改变 guest 私有文件；不要用此工具购买、发送消息、预订、删除外部资料或执行其他高影响外部操作。",
@@ -2337,16 +2382,35 @@ public final class OpenMuseAppModel: ObservableObject {
         case "openmuse_phone_list_goals":
             let visible = goals.filter { !["已完成", "已放弃"].contains($0.status) }.prefix(20)
             payload = [
-                "source": "OpenMuse 本机结构化目标，只读",
+                "source": "OpenMuse 本机结构化目标；goal_id 仅可用于本轮用户明确要求的删除操作",
                 "goals": visible.map { goal in
-                    [
+                    var item: [String: Any] = [
+                        "goal_id": goal.id,
                         "title": goal.title,
                         "summary": String(goal.summary.prefix(800)),
                         "status": goal.status,
+                        "confidence": goal.confidence ?? 0,
+                        "provenance": (goal.confidence ?? 0) >= 0.8 ? "用户明确表达" : "从对话推断",
                         "steps": goal.steps.map { ["title": $0.title, "isComplete": $0.isComplete] as [String: Any] }
-                    ] as [String: Any]
+                    ]
+                    if let sourceText = goal.sourceText, !MemoryPrivacyPolicy.isSensitive(sourceText) {
+                        item["sourceText"] = String(sourceText.prefix(240))
+                    }
+                    return item
                 }
             ]
+        case "openmuse_phone_delete_goal":
+            guard GoalDeletionIntentPolicy.allowsDeletion(in: messages) else {
+                throw ModelRuntimeError.server("本轮用户没有明确要求删除目标；没有执行删除。")
+            }
+            guard let id = arguments["goal_id"] as? String, !id.isEmpty, id.count <= 200,
+                  let target = goals.first(where: { $0.id == id }) else {
+                throw ModelRuntimeError.server("目标 ID 无效或目标已不存在；没有删除其他目标。")
+            }
+            guard await deleteGoal(id: id) else {
+                throw ModelRuntimeError.server(statusText ?? "目标没有删除。")
+            }
+            payload = ["deleted": true, "goal_id": id, "title": target.title, "source": "用户本轮明确授权"]
         case "openmuse_phone_list_documents":
             guard let workspace = self.workspace else { throw ModelRuntimeError.server("正式工作区暂不可用。") }
             let readable = try workspace.documents()
@@ -2546,7 +2610,11 @@ public final class OpenMuseAppModel: ObservableObject {
             "isSearchResult": result.isSearchResult
         ]
         if let links = result.links {
-            payload["links"] = links.prefix(10).map { ["title": String($0.title.prefix(200)), "url": $0.url] }
+            payload["links"] = links.prefix(10).map { link in
+                var item: [String: String] = ["title": String(link.title.prefix(200)), "url": link.url]
+                if let summary = link.summary { item["summary"] = String(summary.prefix(1_000)) }
+                return item
+            }
         }
         if let title = result.title { payload["title"] = String(title.prefix(300)) }
         if let url = result.url { payload["url"] = url }
@@ -2642,6 +2710,8 @@ public final class OpenMuseAppModel: ObservableObject {
         let title: String
         if event.toolName == PhoneBrowserToolRequestPolicy.toolName {
             title = Self.browserActivityTitle(argumentsJSON: event.inputJSON)
+        } else if event.toolName == "openmuse_phone_delete_goal" {
+            title = "删除结构化目标"
         } else if event.toolName == "openmuse_phone_run_ish_command" {
             title = "运行 iSH 命令"
         } else if event.toolName == "openmuse_phone_search_history" {
@@ -2689,6 +2759,13 @@ public final class OpenMuseAppModel: ObservableObject {
             case "failed": detail = "工作区文件没有写入；长期记忆和共享资料没有修改。可展开查看错误详情。"
             case "cancelled": detail = "本次确认已取消；没有执行写入，长期记忆和共享资料没有修改。"
             default: detail = "写入已停止；长期记忆和共享资料没有修改。"
+            }
+        } else if event.toolName == "openmuse_phone_delete_goal" {
+            switch event.status {
+            case "started": detail = "正在删除你明确指定的目标及关联提醒；聊天记录会保留。"
+            case "completed": detail = "目标和关联追踪记录已删除；聊天内容与已完成任务历史保留。"
+            case "failed": detail = "目标没有删除；展开可查看原因。"
+            default: detail = "目标删除操作已停止。"
             }
         } else if event.toolName == PhoneBrowserToolRequestPolicy.toolName {
             switch event.status {
@@ -3062,6 +3139,60 @@ public final class OpenMuseAppModel: ObservableObject {
             if status != "进行中" { pauseScheduledReminders(goalID: goalID, database: database) }
         }
         catch { statusText = "目标状态没有保存：\(error.localizedDescription)" }
+    }
+
+    @discardableResult
+    public func deleteGoal(id: String) async -> Bool {
+        guard let database else {
+            statusText = "目标已不存在，没有删除其他记录。"
+            return false
+        }
+        do {
+            guard let goal = try database.load(GoalRecord.self, kind: RecordKind.goal).first(where: { $0.id == id }) else {
+                statusText = "目标已不存在，没有删除其他记录。"
+                return false
+            }
+            let relatedTasks = try database.load(TaskExecutionRecord.self, kind: RecordKind.executionTask)
+                .filter { $0.goalID == id }
+            let activeStatuses: Set<String> = ["queued", "running", "waiting_user", "waiting_device", "suspended"]
+            guard !relatedTasks.contains(where: { activeStatuses.contains($0.status) }) else {
+                statusText = "这个目标仍有关联任务在执行或等待中；先停止任务，再删除目标。"
+                return false
+            }
+
+            let relatedSchedules = try database.load(ScheduleRecord.self, kind: RecordKind.schedule).filter { $0.goalID == id }
+            let relatedEvents = try database.load(GoalProgressEventRecord.self, kind: RecordKind.goalProgressEvent).filter { $0.goalID == id }
+            let relatedFeedback = try database.load(IdeaFeedbackRecord.self, kind: RecordKind.ideaFeedback).filter { $0.goalID == id }
+            let relatedProposals = try database.load(MaintenanceProposalRecord.self, kind: RecordKind.maintenanceProposal).filter { $0.targetGoalID == id }
+
+            let records: [(kind: String, id: String)] =
+                [(RecordKind.goal, id)] +
+                relatedSchedules.map { (RecordKind.schedule, $0.id) } +
+                relatedEvents.map { (RecordKind.goalProgressEvent, $0.id) } +
+                relatedFeedback.map { (RecordKind.ideaFeedback, $0.id) } +
+                relatedProposals.map { (RecordKind.maintenanceProposal, $0.id) }
+            var detachedTaskWrites: [SQLiteStoreWrite] = []
+            for var task in relatedTasks {
+                task.goalID = nil
+                task.updatedAt = .now
+                let revision = try database.revisions(TaskExecutionRecord.self, kind: RecordKind.executionTask, objectID: task.id).count + 1
+                detachedTaskWrites.append(try database.prepareWrite(task, kind: RecordKind.executionTask, id: task.id, revision: revision, appendRevision: true))
+            }
+
+            _ = try database.forgetRecords(records, andSaving: detachedTaskWrites)
+            for reminder in relatedSchedules where reminder.ownerDeviceID == database.deviceID {
+                await reminderScheduler.remove(id: reminder.id)
+            }
+            try reloadWorkspaceState(database: database)
+            statusText = "已删除「\(goal.title)」的目标追踪和关联提醒；聊天记录与已完成任务历史仍保留。"
+            #if os(iOS)
+            if macBridgePaired { await syncWithMac() }
+            #endif
+            return true
+        } catch {
+            statusText = "目标没有删除：\(error.localizedDescription)"
+            return false
+        }
     }
 
     public func scheduleGoalReminder(goalID: String, dueAt: Date) async {
@@ -3722,9 +3853,77 @@ public final class OpenMuseAppModel: ObservableObject {
 
     public func refreshFeeds() async {
         guard !isRefreshingFeeds else { return }
+        guard let database else {
+            feedDiscoveryStatus = "动态暂时无法保存到本机资料库，请稍后重试。"
+            return
+        }
         isRefreshingFeeds = true
         defer { isRefreshingFeeds = false }
+        if let phoneBrowserRuntime {
+            do {
+                let query = FeedDiscovery.searchQuery(topics: feedDiscoveryTopics())
+                guard let query else {
+                    feedDiscoveryStatus = "还没有可用于公开搜索的兴趣主题；先聊聊你最近在关注什么，或在兴趣说明里补充。"
+                    return
+                }
+                let result = try await phoneBrowserRuntime.perform(
+                    PhoneBrowserActionRequest(action: .search, query: query),
+                    conversationID: FeedDiscovery.browserConversationID
+                )
+                guard result.success, result.isSearchResult else {
+                    throw PhoneBrowserError.actionFailed("搜索没有返回可用的公开结果页。")
+                }
+                let discovered = FeedDiscovery.items(from: result.links ?? [])
+                for item in discovered {
+                    if let index = feedItems.firstIndex(where: { $0.id == item.id }) {
+                        var updated = item
+                        if updated.summary.isEmpty { updated.summary = feedItems[index].summary }
+                        try database.save(updated, kind: RecordKind.feedItem, id: updated.id)
+                        feedItems[index] = updated
+                    } else {
+                        try database.save(item, kind: RecordKind.feedItem, id: item.id)
+                        feedItems.append(item)
+                    }
+                }
+                feedItems.sort { ($0.publishedAt ?? $0.fetchedAt) > ($1.publishedAt ?? $1.fetchedAt) }
+                let engine = result.searchEngine.map { "\($0)" } ?? "当前搜索引擎"
+                feedDiscoveryStatus = discovered.isEmpty
+                    ? "已用\(engine)搜索公开网页，但这次没有找到可展示的结果。你可以稍后再试，或添加订阅来源。"
+                    : "已用\(engine)发现 \(discovered.count) 条公开内容；只搜索主题词，没有发送聊天原文。"
+            } catch {
+                feedDiscoveryStatus = "自动发现暂时失败：\(error.localizedDescription)"
+            }
+            lastFeedDiscoveryAt = .now
+            UserDefaults.standard.set(lastFeedDiscoveryAt, forKey: Self.feedDiscoveryLastAtKey)
+        } else if !feedSources.contains(where: \.isEnabled) {
+            feedDiscoveryStatus = "自动发现目前使用 iPhone 的公开网页搜索；在 Mac 上可查看已同步的内容或添加 RSS 订阅。"
+        }
         for source in feedSources where source.isEnabled { await refreshFeedSource(source.id) }
+    }
+
+    private func feedDiscoveryTopics() -> [String] {
+        let interestCategories = ["interest", "hobb", "旅行", "学习", "兴趣", "爱好"]
+        let preferenceCategories = ["preference", "偏好"]
+        let communicationTerms = ["回复", "回答", "语气", "口吻", "表达", "沟通", "对话", "简洁", "长度", "response", "answer", "tone", "communication"]
+        let confirmedInterests = memoryClaims
+            .filter { claim in
+                guard claim.status == "active", claim.scope == "user", claim.confidence >= 0.6,
+                      claim.isSensitive != true,
+                      PromptContextBuilder.isWithinValidity(claim, asOf: .now),
+                      !MemoryPrivacyPolicy.isSensitive(claim.category + " " + claim.value) else { return false }
+                let category = claim.category.lowercased()
+                let isInterest = interestCategories.contains(where: category.contains)
+                let isPreference = preferenceCategories.contains(where: category.contains)
+                    && !communicationTerms.contains(where: claim.value.lowercased().contains)
+                return isInterest || isPreference
+            }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .map(\.value)
+        let activeGoals = goals
+            .filter { ["进行中", "等待用户"].contains($0.status) && !MemoryPrivacyPolicy.isSensitive($0.title) }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .map(\.title)
+        return Array((confirmedInterests + activeGoals + [feedInstruction]).prefix(8))
     }
 
     public func setFeedSourceEnabled(id: String, enabled: Bool) {

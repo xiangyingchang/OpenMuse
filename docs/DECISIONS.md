@@ -33,6 +33,9 @@
 | D49 | 空旁聊不持久化/不列出；iOS 聊天顶部移除 OpenMuse 头像入口，底栏新增“我的”打开原陪伴者面板；运行任务通过 ActivityKit/WidgetKit 展示隐私安全的真实阶段状态 | 用户 2026-10-13 明确提出；图标用系统 person.crop.circle；灵动岛作为原生阶段展示而非续跑保证 |
 | D50 | iOS 聊天页顶栏背景透明，左右操作按钮下移约13pt；侧栏旁聊支持确认后删除聊天记录与附件、同步删除标记，独立目标/构件/活动/确认记忆保留；“我的”作为底栏普通页面切换，与其他Tab一致 | 用户 2026-10-13 明确提出；顶部安全区参考 Apple Design Skill 与本地 Muse 主聊图；删除保留范围采用产品数据分层默认 |
 | D51 | 每条新消息以发送时保存的 UTC 时间与 IANA 时区作为相对日期锚点；模型按各消息自己的本地日期解释“今晚/明天”等表达，不把旧消息的日期带入新一天；旧/导入记录缺少时区时标明近似，不伪造来源时区 | 用户 2026-10-14 报告跨日“今晚”被沿用，并授权更新方案、实现与发布 |
+| D52 | 明确要求删除目标时，Agent 和目标页都可删除；模型工具仅在当前用户消息明确要求删除时提供，重复项优先选择来源为推断、置信度较低的唯一项；删除清理跟踪关联记录并写墓碑，保留聊天及终态任务，运行任务阻止删除 | 用户 2026-10-15 指出聊天中无法删除重复目标并要求修复；安全边界按最小必要动作实现 |
+| D53 | 兴趣动态以主动发现的个性化公开内容为主体，RSS/Atom 为可选补充；首轮通过手机持久浏览器的 Google/备用搜索引擎检索公开索引内容，查询只使用有效非敏感兴趣、活动目标标题和用户编辑的兴趣说明，不上传聊天原文 | 用户 2026-10-15 明确要求参考 Muse，以兴趣内容为主体、订阅为选项；平台原生接口与索引覆盖未获保证 |
+| D54 | iOS 主聊右上菜单只保留“新建旁聊”；最近活动使用不透明、全高可滚动布局；SOUL 默认值采用用户 2026-10-15 提供的 OpenMuse persona，About 说明只显示在编辑界面，首次初始化以外不覆盖用户内容 | 用户 2026-10-15 明确提出两项界面问题并给出 SOUL 正文 |
 
 ## 需求演变
 
@@ -204,3 +207,11 @@ iOS 左侧抽屉约占屏幕宽度 76%，使对话仍有可见区域；只显示
 iOS 主聊天顶部不再显示 OpenMuse 头像/名称入口。底部导航新增最右侧“我的”，使用系统 person.crop.circle 图标，打开原有陪伴者页面与活动/身份入口；Mac 布局不受此 iOS 导航调整影响。
 
 iOS 运行任务可请求系统 Live Activity，并在锁屏和 Dynamic Island 显示 OpenMuse 名称、真实任务阶段与不确定进度的旋转状态。内容不包含提示词、对话标题、网址或工具参数。阶段来自本机任务/工具状态；过期后显示进度未更新，任务完成、失败或取消后短暂展示终态并收起。该能力依赖 iOS 17+ 与用户/系统允许 Live Activities；禁用或请求失败时，应用内活动记录仍为唯一状态入口。Live Activity 仅呈现运行状态，不承诺后台续跑、准时唤醒或 APNs 远程更新。官方 API 依据：[Apple Live Activities](https://developer.apple.com/documentation/activitykit/displaying-live-data-with-live-activities?changes=_6)、[ActivityConfiguration](https://developer.apple.com/documentation/widgetkit/activityconfiguration)、[DynamicIsland](https://developer.apple.com/documentation/widgetkit/dynamicisland)。详细实现和验收见 T85。
+
+## 2026-10-15 目标删除、兴趣动态与首屏修正（D52–D54）
+
+Agent 删除能力由当前用户的明确请求门控，执行时还需用本轮消息重新校验；目标列表工具返回稳定 ID、来源性质与置信度。重复目标只有在来源差异足以支持唯一选择时才自动处理；否则模型先询问。删除事务清理目标、关联提醒、进展事件、目标建议与维护提案，保存删除墓碑以抑制旧同步副本；保留聊天及终态任务历史。关联任务仍在执行或等待时拒绝删除。目标页另有原生破坏性确认入口。
+
+动态从内容发现开始：iPhone 每次打开动态页时，若距上次检索至少六小时则自动通过持久浏览器搜索；用户也可手动刷新。查询不发送聊天记录，只从有效非敏感的已确认兴趣、进行中目标标题和编辑后的动态说明生成有限查询词。搜索结果以真实 HTTPS 标题、域名、摘要及原文链接形成卡片；RSS/Atom 折叠为可选来源设置。Mac 目前只展示已同步卡片或拉取用户添加的订阅，因为 Mac app 没有 iPhone 的持久浏览器运行时。公开网页索引可能不包含登录后内容或所有帖子，不能称为 X、Reddit、小红书或微信原生连接器。官方接口范围需单独评估：[X 最近搜索](https://github.com/xdevplatform/docs/blob/main/x-api/posts/search/quickstart/recent-search.mdx)、[Reddit Devvit API](https://developers.reddit.com/docs/capabilities/server/reddit-api)、[小红书开放平台](https://openaccount.xiaohongshu.com/docs/api-reference)。
+
+iOS 主聊右上菜单不再重复“新对话”，保留“新建旁聊”；活动页以不透明背景和大尺寸滚动区避开顶部遮挡。首次初始化才写入新的 `SOUL.md` 模板。Muse 式 About 说明单独显示在编辑器，用户原文不被存入人格文件正文；既有用户文件不自动迁移或覆盖。实现及测试状态见 [T89](ITERATIONS.md#t89)。

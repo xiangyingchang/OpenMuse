@@ -99,6 +99,12 @@ public struct OpenMuseRootView: View {
                     .presentationDragIndicator(.hidden)
                     .presentationCornerRadius(0)
                     .presentationBackground(OpenMusePalette.background)
+            } else if case .activity = sheet {
+                sheetContent(sheet)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+                    .presentationCornerRadius(0)
+                    .presentationBackground(OpenMusePalette.background)
             } else {
                 sheetContent(sheet)
             }
@@ -197,9 +203,7 @@ public struct OpenMuseRootView: View {
             #endif
             Menu {
                 if model.selectedSection == .chat {
-                    Button("新对话", systemImage: "square.and.pencil") { model.beginNewConversation() }
                     Button("新建旁聊", systemImage: "bubble.left.and.bubble.right") { model.beginSideConversation() }
-                    Divider()
                 }
                 Button("最近活动", systemImage: "clock") { model.presentedSheet = .activity }
                 Button("模型与连接设置", systemImage: "slider.horizontal.3") { model.presentedSheet = .settings }
@@ -674,6 +678,8 @@ private struct GoalsHomeView: View {
     @State private var expandedGoalIDs: Set<String> = []
     @State private var expandedHistoryIDs: Set<String> = []
     @State private var goalHistoryByID: [String: [GoalRecord]] = [:]
+    @State private var goalToDelete: GoalRecord?
+    @State private var isConfirmingGoalDeletion = false
     @State private var selectedReminderGoal: GoalRecord?
     @State private var reminderDate = Date().addingTimeInterval(3_600)
 
@@ -713,6 +719,16 @@ private struct GoalsHomeView: View {
                 Task { await model.scheduleGoalReminder(goalID: goal.id, dueAt: dueAt) }
             }
         }
+        .confirmationDialog("删除这个目标？", isPresented: $isConfirmingGoalDeletion, titleVisibility: .visible) {
+            Button("删除目标", role: .destructive) {
+                guard let id = goalToDelete?.id else { return }
+                Task { _ = await model.deleteGoal(id: id) }
+                goalToDelete = nil
+            }
+            Button("取消", role: .cancel) { goalToDelete = nil }
+        } message: {
+            Text("会删除目标追踪、关联提醒和进展记录；聊天记录与已完成任务历史会保留。")
+        }
     }
 
     @ViewBuilder
@@ -748,6 +764,11 @@ private struct GoalsHomeView: View {
                         Button("暂停追踪") { model.setGoalStatus(goalID: goal.id, status: "已暂停") }
                         Button("标记完成") { model.setGoalStatus(goalID: goal.id, status: "已完成") }
                         Button("关闭追踪") { model.setGoalStatus(goalID: goal.id, status: "已关闭") }
+                    }
+                    Divider()
+                    Button("删除目标", systemImage: "trash", role: .destructive) {
+                        goalToDelete = goal
+                        isConfirmingGoalDeletion = true
                     }
                 } label: {
                     Image(systemName: "ellipsis")

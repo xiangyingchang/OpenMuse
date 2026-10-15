@@ -476,6 +476,27 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertTrue((try reopened.pendingOutboxCount()) >= 8)
     }
 
+    func testDefaultSoulTemplateMatchesApprovedPersonaAndDoesNotContainAboutNote() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseSoulTemplate-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = try SQLiteStore(path: directory.appendingPathComponent("state.sqlite"))
+        let root = directory.appendingPathComponent("workspace", isDirectory: true)
+        let workspace = try WorkspaceFiles(store: store, rootURL: root)
+        let soul = try XCTUnwrap(workspace.document(path: "SOUL.md"))
+
+        XCTAssertTrue(soul.content.hasPrefix("# SOUL.md\n\nYou're not a chatbot. You're becoming someone."))
+        XCTAssertTrue(soul.content.contains("**Your purpose is to make your user's life better.**"))
+        XCTAssertTrue(soul.content.contains("**Be honest about what you know and what you've done.**"))
+        XCTAssertTrue(soul.content.contains("**Close the loop.**"))
+        XCTAssertTrue(soul.content.contains("If you change this file, tell the user. It's your soul, and they should know."))
+        XCTAssertFalse(soul.content.contains("About this file."), "The introductory note is editor help, not file content.")
+
+        let custom = "# SOUL.md\n\n用户自己编辑的人格内容。\n"
+        _ = try workspace.save(path: "SOUL.md", content: custom)
+        let reopened = try WorkspaceFiles(store: store, rootURL: root)
+        XCTAssertEqual(try reopened.document(path: "SOUL.md")?.content, custom)
+    }
+
     func testPersonaRefinementIsNarrowSourceLinkedSyncedAndUndoable() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMusePersona-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }

@@ -1086,6 +1086,7 @@ struct FeedHomeView: View {
     @State private var draft = ""
     @State private var sourceURL = ""
     @State private var showingHiddenFeedItems = false
+    @State private var showingSubscriptions = false
 
     private var visibleItems: [FeedItemRecord] {
         model.feedItems
@@ -1111,7 +1112,7 @@ struct FeedHomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack(alignment: .top, spacing: 12) {
-                    PageHeading(title: "动态", subtitle: "从你选择的来源里，慢慢发现值得了解的内容。")
+                    PageHeading(title: "动态", subtitle: "根据你近期的目标与已确认兴趣，发现值得了解的公开内容。")
                     Spacer(minLength: 0)
                     Button {
                         Task { await model.refreshFeeds() }
@@ -1120,8 +1121,11 @@ struct FeedHomeView: View {
                         else { Image(systemName: "arrow.clockwise").frame(width: 38, height: 38) }
                     }
                     .buttonStyle(.plain)
-                    .disabled(model.isRefreshingFeeds || !model.feedSources.contains(where: \.isEnabled))
-                    .accessibilityLabel("刷新动态来源")
+                    .disabled(model.isRefreshingFeeds || (!model.canDiscoverFeedContent && !model.feedSources.contains(where: \.isEnabled)))
+                    .accessibilityLabel("发现新内容")
+                }
+                if let status = model.feedDiscoveryStatus {
+                    Text(status).font(.caption).foregroundStyle(OpenMusePalette.subtle)
                 }
                 if isEditing {
                     VStack(alignment: .leading, spacing: 10) {
@@ -1164,57 +1168,13 @@ struct FeedHomeView: View {
                     .accessibilityLabel("编辑动态兴趣指令")
                 }
 
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("添加 RSS 或 Atom 来源").font(.subheadline.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
-                    HStack(spacing: 8) {
-                        sourceAddressField
-                        Button("添加") {
-                            let value = sourceURL
-                            sourceURL = ""
-                            Task { await model.addFeedSource(value) }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(sourceURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isRefreshingFeeds)
-                    }
-                    Text("只读取你添加的公开 HTTPS 订阅；原文链接和来源时间会保留。没有来源时不会显示虚构内容。")
-                        .font(.caption).foregroundStyle(OpenMusePalette.subtle)
-                    Toggle("显示文章图片", isOn: $displayFeedImages)
-                        .font(.caption)
-                    Text("开启后，加载配图时可能连接图片托管服务；关闭时只读取订阅文本。")
-                        .font(.caption2).foregroundStyle(OpenMusePalette.subtle)
-                }
-                .padding(14)
-                .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 16))
-
-                if !model.feedSources.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("来源").font(.subheadline.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
-                        ForEach(model.feedSources) { source in
-                            HStack(alignment: .top, spacing: 10) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(source.title).font(.subheadline.weight(.medium)).foregroundStyle(OpenMusePalette.text)
-                                    Text(source.lastError ?? source.url).font(.caption).foregroundStyle(source.lastError == nil ? OpenMusePalette.subtle : OpenMusePalette.warning).lineLimit(2)
-                                }
-                                Spacer(minLength: 0)
-                                Toggle("更新", isOn: Binding(
-                                    get: { source.isEnabled },
-                                    set: { model.setFeedSourceEnabled(id: source.id, enabled: $0) }
-                                ))
-                                .labelsHidden()
-                                .accessibilityLabel("更新来源：\(source.title)")
-                            }
-                            .padding(.vertical, 4)
-                        }
-                    }
-                }
-
                 if visibleItems.isEmpty {
                     EmptyPanel(
                         symbol: "sparkles",
-                        title: model.feedSources.isEmpty ? "还没有新的动态" : "来源里暂时没有可显示的内容",
-                        detail: model.feedSources.isEmpty
-                            ? "添加一个你信任的 RSS 或 Atom 地址后，这里会显示真实文章；你也可以直接在聊天里继续讨论。"
-                            : "刷新后会读取来源更新。打不开的来源会保留在来源列表里并显示原因。"
+                        title: "还没有发现内容",
+                        detail: model.feedDiscoveryStatus ?? (model.canDiscoverFeedContent
+                            ? "打开动态时会按你的兴趣搜索公开网页；你也可以点右上角立即发现，或稍后添加订阅。"
+                            : "自动发现目前在 iPhone 上运行；你也可以添加 RSS/Atom 订阅，或打开已同步的内容。")
                     )
                 }
 
@@ -1304,6 +1264,56 @@ struct FeedHomeView: View {
                     .padding(13)
                     .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 14))
                 }
+
+                DisclosureGroup(isExpanded: $showingSubscriptions) {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("添加 RSS 或 Atom 来源").font(.subheadline.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
+                        HStack(spacing: 8) {
+                            sourceAddressField
+                            Button("添加") {
+                                let value = sourceURL
+                                sourceURL = ""
+                                Task { await model.addFeedSource(value) }
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(sourceURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || model.isRefreshingFeeds)
+                        }
+                        Text("订阅是可选补充；只读取你添加的公开 HTTPS 地址。自动发现通过当前搜索引擎查询公开索引，不能读取需登录或未被索引的内容。")
+                            .font(.caption).foregroundStyle(OpenMusePalette.subtle)
+                        Toggle("显示文章图片", isOn: $displayFeedImages)
+                            .font(.caption)
+                        Text("开启后，加载配图时可能连接图片托管服务；关闭时只读取订阅文本。")
+                            .font(.caption2).foregroundStyle(OpenMusePalette.subtle)
+                        if !model.feedSources.isEmpty {
+                            Divider().overlay(OpenMusePalette.border)
+                            ForEach(model.feedSources) { source in
+                                HStack(alignment: .top, spacing: 10) {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(source.title).font(.subheadline.weight(.medium)).foregroundStyle(OpenMusePalette.text)
+                                        Text(source.lastError ?? source.url).font(.caption).foregroundStyle(source.lastError == nil ? OpenMusePalette.subtle : OpenMusePalette.warning).lineLimit(2)
+                                    }
+                                    Spacer(minLength: 0)
+                                    Toggle("更新", isOn: Binding(
+                                        get: { source.isEnabled },
+                                        set: { model.setFeedSourceEnabled(id: source.id, enabled: $0) }
+                                    ))
+                                    .labelsHidden()
+                                    .accessibilityLabel("更新来源：\(source.title)")
+                                }
+                                .padding(.vertical, 4)
+                            }
+                        }
+                    }
+                    .padding(14)
+                } label: {
+                    Label("订阅来源（可选）\(model.feedSources.isEmpty ? "" : " · \(model.feedSources.count)")", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(OpenMusePalette.text)
+                }
+                .tint(OpenMusePalette.blue)
+                .padding(13)
+                .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 14))
+                .accessibilityIdentifier("feed-subscriptions-disclosure")
             }
             .padding(18)
             .frame(maxWidth: 780)
@@ -1311,7 +1321,9 @@ struct FeedHomeView: View {
         }
         .onAppear {
             if draft.isEmpty { draft = model.feedInstruction }
-            if model.feedItems.isEmpty && !model.feedSources.isEmpty { Task { await model.refreshFeeds() } }
+            if model.shouldAutoRefreshFeeds || (model.feedItems.isEmpty && model.feedSources.contains(where: \.isEnabled)) {
+                Task { await model.refreshFeeds() }
+            }
         }
     }
 

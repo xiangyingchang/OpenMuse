@@ -3,10 +3,12 @@ import Foundation
 public struct PhoneBrowserLink: Codable, Equatable, Sendable {
     public let title: String
     public let url: String
+    public let summary: String?
 
-    public init(title: String, url: String) {
+    public init(title: String, url: String, summary: String? = nil) {
         self.title = title
         self.url = url
+        self.summary = summary
     }
 }
 

@@ -1917,6 +1917,14 @@ public struct WorkspaceDocumentEditor: View {
     public var body: some View {
         VStack(spacing: 0) {
             sheetHeader(title: document.path, subtitle: "UTF-8 Markdown · 修订 \(document.revision)")
+            if document.path == "SOUL.md" {
+                Text("About this file. This is OpenMuse's persona. It sets out the values and habits OpenMuse tries to hold to in every conversation. It starts from a template that ships with OpenMuse. OpenMuse may refine it over time and tells you when it does. You can edit it at any time. This note is not part of the file.")
+                    .font(.caption)
+                    .foregroundStyle(EditorPalette.subtle)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+            }
             TextEditor(text: $content)
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
@@ -2038,9 +2046,16 @@ public struct ActivityListView: View {
     public var body: some View {
         VStack(spacing: 0) {
             sheetHeader(title: "最近活动", subtitle: "显示真实的对话请求状态，不用估算进度。")
-            ActivityRecordsList(model: model)
+            ScrollView {
+                ActivityRecordsList(model: model)
+                    .padding(.top, 6)
+                    .padding(.bottom, 24)
+            }
+            .scrollIndicators(.visible)
+            .accessibilityIdentifier("activity-list-scroll")
         }
-        .background(EditorPalette.background)
+        .background(EditorPalette.background.ignoresSafeArea())
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .frame(minWidth: 360, minHeight: 440)
     }
 }

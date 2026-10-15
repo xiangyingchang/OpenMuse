@@ -1,5 +1,15 @@
 # 迭代记录
 
+## T89：2026-10-15 目标删除、兴趣动态与体验问题修复
+
+- 目标删除：原 Agent 工具表只读目标，模型无法执行对话中的删除请求。新增稳定 `goal_id`、来源性质、置信度和有限来源文本；只在当前用户明确要求删除目标时暴露工具，调用时再次检查当前用户消息。重复目标优先选择推断且置信度较低的唯一项；用户在讨论删除功能、提问或否定删除时不提供工具。新增目标卡“删除目标”确认操作。删除会将目标、关联提醒/进展/建议写入墓碑并清理；保留聊天和已结束任务历史；关联任务仍在执行或等待时拒绝删除。真值以数据库最新目标记录为准，避免使用旧 UI 快照操作已删除目标。
+- 顶部菜单与活动页：iOS 主聊右上角移除“新对话”，只保留“新建旁聊”；最近活动固定全高，采用不透明背景和独立滚动区域，标题与列表不再从顶部半屏 sheet 后方滚动。新增 UI accessibility ID 供自动化确认滚动容器。
+- 动态页：按 Muse 已归档动态页截图的阅读层级，把个性化内容作为主体，RSS/Atom 来源管理移入“订阅来源（可选）”折叠区。iPhone 页面打开且距上次检索至少六小时时，使用持久浏览器的默认 Google 搜索和已选备用引擎；手动刷新仍可用。查询最多 160 字符，只由有效、非敏感的确认兴趣、进行中目标标题和用户编辑的动态说明组成，不上传原始聊天。真实 HTTPS 搜索结果以标题、域名、可取得摘要和原文链接入库并去重。Mac 没有 iPhone 持久浏览器运行时，只能查看同步动态或读用户配置的 RSS/Atom。
+- 研究边界：本轮没有把各平台原生 API 作为能力。X 官方近期搜索文档要求 API access；Reddit 检索参考位于 Devvit API；小红书开放平台参考页没有形成可供本 App 使用的匿名公开内容搜索方案。因此先用搜索引擎已索引的公开页面，不登录、不绕过访问限制；漏索引、登录后内容与可达性不保证。参考：[X Recent Search](https://github.com/xdevplatform/docs/blob/main/x-api/posts/search/quickstart/recent-search.mdx)、[Reddit Devvit API](https://developers.reddit.com/docs/capabilities/server/reddit-api)、[小红书开放平台 API](https://openaccount.xiaohongshu.com/docs/api-reference)。
+- SOUL：首次初始化的默认模板改为用户在 2026-10-15 提供的 OpenMuse 英文 persona；Muse 风格 “About this file” 作为编辑说明显示，不写入 Markdown 正文。`WorkspaceFiles` 仅为缺失核心文件初始化，不覆盖已经编辑的人格文件。
+- 验证：`swift test --scratch-path .build/t89-final-tests` 执行296项、2项实时环境条件跳过、0失败；跳过的是需用户配置的真实 Pi RPC 与 Tailscale 端点。新增目标删除/动态发现用例包含在总数。iOS Simulator `xcodebuild test` 定向执行 `testPrimarySectionsAndCompanionPanel` 与 `testChatMenuKeepsOnlySideChatAndActivitySheetRespectsTheTopSafeArea`，2/2通过；结果 `.build/t89-ios-ui/Logs/Test/Test-OpenMuseiOS-2026.10.15_14-30-08-+0800.xcresult`。最终变更后的 iOS Simulator Debug 与 Mac Debug 构建均通过。日志留在被忽略的 `.build/logs/openmuse-t89-final-tests.log`、`openmuse-t89-ios-ui-tests.log`、`openmuse-t89-ios-build.log`、`openmuse-t89-mac-build.log`；`git diff --check` 通过。
+- 未验：没有把 IPA/Release 包安装到真机，没有真实模型调用删除，没有在设备网络中实际跑 Google 与平台来源搜索。模拟器验证 UI，不证明物理 iPhone 的网络索引结果。首次打开动态页面会触发真实搜索；连接设置中的搜索备用引擎决定 Google 不可读时的回退。公开搜索不是原生社交平台连接器，也不能发现未索引内容。详细需求见 [PRD 第29节](PRD.md#29-目标删除兴趣动态与首屏修正2026-10-15)；来源与方案见 [D52–D54](DECISIONS.md)。
+
 ## T88：2026-10-15 修复结构化记忆上下文回显并安装真机
 
 - 问题与根因：新版本聊天中，模型把 `<openmuse-reference-data>`、USER.md 说明和自动维护区标记当成回复内容。代码检查确认，`OpenMuseAppModel` 曾把本地参考资料包装成独立的 `role=user` 消息，再把用户当前问题作为另一条 `role=user` 消息；系统提示还明确称 OpenMuse 资料是 user messages。模型因此可能把内部资料视为一条需要回应的用户输入。截图中的标记由模型生成，问题不在 Markdown 视图本身或聊天气泡渲染。

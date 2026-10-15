@@ -12,7 +12,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
 
     func testPrimarySectionsAndCompanionPanel() {
         let sections: [(String, String)] = [
-            ("动态", "从你选择的来源里，慢慢发现值得了解的内容。"),
+            ("动态", "根据你近期的目标与已确认兴趣，发现值得了解的公开内容。"),
             ("目标", "从聊天里发现，和你一起往前推。"),
             ("资源库", "可以回到聊天继续修改的成果。"),
             ("聊天", "先连接一个模型，就可以开始聊天")
@@ -22,9 +22,12 @@ final class OpenMuseNavigationUITests: XCTestCase {
             app.buttons[section].tap()
             XCTAssertTrue(app.staticTexts[expectedText].waitForExistence(timeout: 3), "Expected the \(section) section to render its heading or empty state.")
             if section == "动态" {
+                let subscriptions = app.descendants(matching: .any)["feed-subscriptions-disclosure"]
+                XCTAssertTrue(subscriptions.waitForExistence(timeout: 3))
+                subscriptions.tap()
                 XCTAssertTrue(app.textFields["https://example.com/feed.xml"].exists)
                 XCTAssertTrue(app.switches["显示文章图片"].exists)
-                XCTAssertTrue(app.staticTexts["还没有新的动态"].exists)
+                XCTAssertTrue(app.staticTexts["还没有发现内容"].exists)
             }
         }
 
@@ -39,7 +42,7 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertFalse(app.buttons["分享 OpenMuse"].exists, "Sheet-only actions should not appear on the My tab page.")
 
         app.buttons["动态"].tap()
-        XCTAssertTrue(app.staticTexts["还没有新的动态"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["还没有发现内容"].waitForExistence(timeout: 3))
         app.buttons["我的"].tap()
         XCTAssertTrue(app.buttons["活动"].waitForExistence(timeout: 3))
 
@@ -96,6 +99,21 @@ final class OpenMuseNavigationUITests: XCTestCase {
         XCTAssertTrue(more.exists)
         XCTAssertGreaterThanOrEqual(sidebar.frame.minY, 68, "The header controls should sit below the status bar and lower than the previous placement.")
         XCTAssertEqual(sidebar.frame.midY, more.frame.midY, accuracy: 1.5, "The two top controls should remain aligned.")
+    }
+
+    func testChatMenuKeepsOnlySideChatAndActivitySheetRespectsTheTopSafeArea() {
+        app.buttons["更多操作"].tap()
+        XCTAssertTrue(app.buttons["新建旁聊"].waitForExistence(timeout: 3))
+        XCTAssertFalse(app.buttons["新对话"].exists)
+        app.buttons["最近活动"].tap()
+
+        let heading = app.staticTexts["最近活动"]
+        let activityScroll = app.scrollViews["activity-list-scroll"]
+        XCTAssertTrue(heading.waitForExistence(timeout: 3))
+        XCTAssertTrue(heading.isHittable)
+        XCTAssertGreaterThan(heading.frame.minY, 40, "The activity heading must remain below the status-area controls.")
+        XCTAssertTrue(activityScroll.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["还没有活动"].exists)
     }
 
     func testMainChatIsThePrimaryTabAndOnlySideChatsAppearBelowIt() {

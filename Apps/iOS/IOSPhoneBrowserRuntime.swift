@@ -653,7 +653,11 @@ final class IOSPhoneBrowserRuntime: NSObject, PhoneBrowserRuntime, WKNavigationD
           }
           text = text.slice(0, 18000);
           const links = Array.from(document.querySelectorAll('a[href]'))
-            .map(a => ({title: clean(a.innerText || a.getAttribute('aria-label') || a.title), url: a.href}))
+            .map(a => {
+              const result = a.closest('.MjjYud') || a.closest('[data-sokoban-container]') || a.closest('li');
+              const snippet = result && result.querySelector('.VwiC3b, .aCOpRe, [data-sncf]');
+              return {title: clean(a.innerText || a.getAttribute('aria-label') || a.title), url: a.href, summary: clean(snippet && snippet.innerText)};
+            })
             .filter(link => link.title && /^https:\\/\\//i.test(link.url))
             .slice(0, 30);
           return {
@@ -675,10 +679,11 @@ final class IOSPhoneBrowserRuntime: NSObject, PhoneBrowserRuntime, WKNavigationD
                 bodyTextLength: dictionary["bodyTextLength"] as? Int ?? 0
             )
         }
-        let links = (dictionary["links"] as? [[String: String]] ?? []).compactMap { link -> PhoneBrowserLink? in
-            guard let title = link["title"], let rawURL = link["url"],
+        let links = (dictionary["links"] as? [[String: Any]] ?? []).compactMap { link -> PhoneBrowserLink? in
+            guard let title = link["title"] as? String, let rawURL = link["url"] as? String,
                   let url = URL(string: rawURL), PhoneBrowserURLPolicy.isPublicHTTPSURL(url) else { return nil }
-            return PhoneBrowserLink(title: String(title.prefix(200)), url: rawURL)
+            let summary = (link["summary"] as? String).map { String($0.prefix(1_000)) }
+            return PhoneBrowserLink(title: String(title.prefix(200)), url: rawURL, summary: summary)
         }
         let page = PhoneBrowserPage(
             title: String((dictionary["title"] as? String ?? "").prefix(300)),
