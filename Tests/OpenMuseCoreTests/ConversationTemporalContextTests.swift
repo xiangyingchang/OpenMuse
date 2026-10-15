@@ -21,15 +21,25 @@ final class ConversationTemporalContextTests: XCTestCase {
             createdAt: today, timeZoneIdentifier: zone.identifier
         )
 
-        let oldContext = ConversationTemporalContext.annotate(
-            message: oldMessage, content: oldMessage.content, fallbackTimeZoneIdentifier: zone.identifier
+        let oldMetadata = ConversationTemporalContext.messageMetadata(
+            createdAt: oldMessage.createdAt, timeZoneIdentifier: oldMessage.timeZoneIdentifier,
+            fallbackTimeZoneIdentifier: zone.identifier
         )
-        let newContext = ConversationTemporalContext.annotate(
-            message: newMessage, content: newMessage.content, fallbackTimeZoneIdentifier: zone.identifier
+        let newMetadata = ConversationTemporalContext.messageMetadata(
+            createdAt: newMessage.createdAt, timeZoneIdentifier: newMessage.timeZoneIdentifier,
+            fallbackTimeZoneIdentifier: zone.identifier
+        )
+        let index = ConversationTemporalContext.transcriptIndex(
+            recentMessages: [
+                TranscriptMessage(role: "user", content: oldMessage.content, internalTemporalMetadata: oldMetadata),
+                TranscriptMessage(role: "user", content: newMessage.content, internalTemporalMetadata: newMetadata)
+            ],
+            parentContext: []
         )
 
-        XCTAssertTrue(oldContext.contains("2026-10-13 23:40:00"))
-        XCTAssertTrue(newContext.contains("2026-10-14 00:20:00"))
+        XCTAssertTrue(try XCTUnwrap(index).contains("[1] 用户：\(oldMetadata)"))
+        XCTAssertTrue(try XCTUnwrap(index).contains("[2] 用户：\(newMetadata)"))
+        XCTAssertFalse(try XCTUnwrap(index).contains(oldMessage.content), "User message bodies must not be copied into the metadata index.")
         XCTAssertTrue(ConversationTemporalContext.turnInstructions(
             createdAt: today, timeZoneIdentifier: zone.identifier
         ).contains("不能把旧消息的日期锚点沿用到本轮"))
@@ -51,7 +61,7 @@ final class ConversationTemporalContextTests: XCTestCase {
 
         XCTAssertTrue(metadata.contains("2026-10-13 23:40:00"))
         XCTAssertTrue(metadata.contains("Asia/Shanghai"))
-        XCTAssertTrue(metadata.contains("原始时区未记录，按本轮时区近似换算"))
+        XCTAssertTrue(metadata.contains("时区按当前设备估算"))
     }
 
     func testLegacyMessagePayloadDecodesWithoutTimeZoneField() throws {

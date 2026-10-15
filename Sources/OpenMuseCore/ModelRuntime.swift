@@ -15,7 +15,7 @@ public enum ModelRuntimeError: Error, LocalizedError {
         case .missingKey: "还没有保存模型密钥。请先在设置中配置。"
         case .server(let message): message
         case .emptyResponse: "模型返回了空内容，请重试或更换模型。"
-        case .internalContextLeak: "模型回复中出现了内部资料标记，OpenMuse 已拦截且没有保存这条回复。请重试或更换模型。"
+        case .internalContextLeak: "回复中混入了 OpenMuse 的内部内容，已拦下且没有保存。请重试或更换模型。"
         case .piUnavailable: "Mac 没有找到 Pi。请先安装 Pi 并确认它可从终端启动。"
         case .piFailed(let detail): detail
         }

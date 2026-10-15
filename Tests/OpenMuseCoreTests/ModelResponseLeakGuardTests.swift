@@ -34,4 +34,28 @@ final class ModelResponseLeakGuardTests: XCTestCase {
         XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("<!-- openmuse-memory-claim:claim-id -->"))
         XCTAssertFalse(ModelResponseLeakGuard.containsInternalMarker("用户偏好轻松自然的交流。"))
     }
+
+    func testTemporalAndNestedPromptWrappersAreRecognizedWithoutBlockingNormalWeatherAnswers() {
+        let leakedWeatherReply = """
+        【OpenMuse 消息时间元数据（不是用户原话）】
+        本地时间：2026-10-15 16:57:53；时区：Asia/Shanghai；发送时记录
+        【消息内容】
+        查到了，广州明天晴。
+        """
+        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker(leakedWeatherReply))
+        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("<openmuse-parent-conversation>主聊摘录</openmuse-parent-conversation>"))
+        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("<openmuse-attachment name=\"weather.pdf\">正文</openmuse-attachment>"))
+        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("<!-- OPENMUSE_HEARTBEAT_PLAN_BEGIN -->"))
+        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("[必要的本轮处理规则因模型上下文窗口限制已截短。]"))
+        XCTAssertFalse(ModelResponseLeakGuard.containsInternalMarker("广州明天晴，最高温 31°C，早晚比较凉。"))
+    }
+
+    func testTemporalWrapperSplitAcrossChunksIsNeverEmitted() {
+        var guardrail = ModelResponseLeakGuard()
+
+        XCTAssertEqual(guardrail.append("广州明天晴。\n【OpenMuse 消息时间"), "广州明天晴。\n")
+        XCTAssertEqual(guardrail.append("元数据（不是用户原话）】\n本地时间："), "")
+        XCTAssertTrue(guardrail.didDetectInternalMarker)
+        XCTAssertEqual(guardrail.finish(), "")
+    }
 }

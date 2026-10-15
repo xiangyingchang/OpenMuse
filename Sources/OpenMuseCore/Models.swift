@@ -1347,6 +1347,20 @@ public struct ModelConfiguration: Codable, Equatable, Sendable {
 public struct TranscriptMessage: Codable, Sendable {
     public var role: String
     public var content: String
+    /// Private host-side context used to build a trusted temporal index. It is
+    /// deliberately omitted from the wire transcript and never becomes message text.
+    public var internalTemporalMetadata: String? = nil
+
+    private enum CodingKeys: String, CodingKey {
+        case role
+        case content
+    }
+
+    public init(role: String, content: String, internalTemporalMetadata: String? = nil) {
+        self.role = role
+        self.content = content
+        self.internalTemporalMetadata = internalTemporalMetadata
+    }
 }
 
 public enum WorkspaceSection: String, CaseIterable, Identifiable {

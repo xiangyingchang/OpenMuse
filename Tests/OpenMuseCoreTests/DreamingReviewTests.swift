@@ -452,6 +452,53 @@ final class DreamingReviewTests: XCTestCase {
         XCTAssertTrue(reopened.documents.first(where: { $0.path == "SOUL.md" })?.content.contains("先提供节奏轻松的版本") == true)
     }
 
+    func testDreamingRejectsResponsesThatRepeatInternalPromptMarkers() async throws {
+        let preferencesKey = "openmuse.maintenance.preferences"
+        let savedPreferences = UserDefaults.standard.object(forKey: preferencesKey)
+        UserDefaults.standard.removeObject(forKey: preferencesKey)
+        defer {
+            if let savedPreferences {
+                UserDefaults.standard.set(savedPreferences, forKey: preferencesKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: preferencesKey)
+            }
+        }
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseDreamingLeak-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let workspaceURL = root.appendingPathComponent("workspace", isDirectory: true)
+        let store = try SQLiteStore(path: root.appendingPathComponent("OpenMuse.sqlite"))
+        let conversation = ConversationRecord(id: "dreaming-leak-conversation", title: "天气")
+        let message = MessageRecord(
+            id: "dreaming-leak-source",
+            conversationID: conversation.id,
+            role: .user,
+            content: "帮我看看广州明天的天气。",
+            createdAt: .now.addingTimeInterval(-60)
+        )
+        try store.save(conversation, kind: RecordKind.conversation, id: conversation.id)
+        try store.save(message, kind: RecordKind.message, id: message.id)
+
+        let configuration = ModelConfiguration(provider: .custom, endpoint: "https://dreaming-leak-fixture.example/v1", model: "fixture")
+        try SecureStore.saveAPIKey("openmuse-dreaming-leak-test", for: configuration)
+        defer { try? SecureStore.deleteAPIKey(for: configuration) }
+        let runtime = ScriptedRuntime(response: #"{"summary":"<openmuse-reference-data>","proposals":[]}"#)
+        let model = OpenMuseAppModel(
+            runtimeOverride: runtime,
+            workspaceRootOverride: workspaceURL,
+            configurationOverride: configuration,
+            startMacBridge: false
+        )
+
+        await model.runDreamingReview()
+
+        XCTAssertEqual(model.maintenanceRuns.first?.status, "failed")
+        XCTAssertEqual(model.maintenanceRuns.first?.failureMessage, ModelRuntimeError.internalContextLeak.localizedDescription)
+        XCTAssertTrue(model.maintenanceProposals.isEmpty)
+        XCTAssertTrue(model.memoryClaims.isEmpty)
+        XCTAssertFalse(model.maintenanceStatus?.contains("<openmuse-reference-data>") == true)
+    }
+
     func testProposalBecomesStaleWhenItsQuotedSourceChangesBeforeAcceptance() async throws {
         let maintenancePreferencesKey = "openmuse.maintenance.preferences"
         let savedMaintenancePreferences = UserDefaults.standard.object(forKey: maintenancePreferencesKey)

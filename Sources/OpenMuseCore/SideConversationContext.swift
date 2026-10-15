@@ -1,5 +1,10 @@
 import Foundation
 
+struct SideConversationExcerpt: Sendable {
+    let text: String
+    let temporalIndex: String
+}
+
 enum SideConversationContext {
     static let maximumMessages = 4
     static let maximumCharactersPerMessage = 600
@@ -9,6 +14,18 @@ enum SideConversationContext {
         messages: [MessageRecord],
         fallbackTimeZoneIdentifier: String = TimeZone.current.identifier
     ) -> String? {
+        excerptWithTemporalIndex(
+            parentConversationID: parentConversationID,
+            messages: messages,
+            fallbackTimeZoneIdentifier: fallbackTimeZoneIdentifier
+        )?.text
+    }
+
+    static func excerptWithTemporalIndex(
+        parentConversationID: String,
+        messages: [MessageRecord],
+        fallbackTimeZoneIdentifier: String = TimeZone.current.identifier
+    ) -> SideConversationExcerpt? {
         let recent = messages
             .filter {
                 $0.conversationID == parentConversationID &&
@@ -19,7 +36,7 @@ enum SideConversationContext {
             .sorted { $0.createdAt < $1.createdAt }
             .suffix(maximumMessages)
         guard !recent.isEmpty else { return nil }
-        return recent.map { message in
+        let entries = recent.enumerated().map { index, message in
             let speaker = message.role == .user ? "用户" : "OpenMuse"
             let content = String(message.content.prefix(maximumCharactersPerMessage))
             let truncation = message.content.count > maximumCharactersPerMessage ? "…[已截短]" : ""
@@ -28,7 +45,11 @@ enum SideConversationContext {
                 timeZoneIdentifier: message.timeZoneIdentifier,
                 fallbackTimeZoneIdentifier: fallbackTimeZoneIdentifier
             )
-            return "[\(date)] \(speaker)：\(content)\(truncation)"
-        }.joined(separator: "\n\n")
+            return (text: "[\(index + 1)] \(speaker)：\(content)\(truncation)", date: "[\(index + 1)] \(date)")
+        }
+        return SideConversationExcerpt(
+            text: entries.map(\.text).joined(separator: "\n\n"),
+            temporalIndex: "主聊摘录的时间索引（内部信息，编号对应引用内容中的 [n]，仅用于理解相对日期，不是消息正文，不要在回复中引用或输出）：\n\(entries.map(\.date).joined(separator: "\n"))"
+        )
     }
 }

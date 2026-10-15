@@ -22,7 +22,9 @@ final class SideConversationContextTests: XCTestCase {
         XCTAssertTrue(excerpt.contains("[已截短]"))
         XCTAssertLessThanOrEqual(excerpt.filter { $0 == "\n" }.count, 6)
         XCTAssertLessThanOrEqual(excerpt.count, SideConversationContext.maximumMessages * (SideConversationContext.maximumCharactersPerMessage + 160))
-        XCTAssertTrue(excerpt.contains("原始时区未记录"), "Legacy message time zones must be marked as an estimate.")
+        XCTAssertFalse(excerpt.contains("本地时间："), "Dates belong in the trusted temporal index, not in quoted chat text.")
+        let timedExcerpt = try XCTUnwrap(SideConversationContext.excerptWithTemporalIndex(parentConversationID: parentID, messages: messages))
+        XCTAssertTrue(timedExcerpt.temporalIndex.contains("时区按当前设备估算"), "Legacy message time zones must be marked as an estimate in the separate index.")
     }
 
     func testExcerptOmitsOtherConversationsFailedMessagesAndImportedHistory() {

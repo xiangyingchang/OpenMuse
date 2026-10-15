@@ -240,7 +240,7 @@ enum PromptContextBuilder {
             return RankedLine(
                 score: matches.count,
                 updatedAt: message.createdAt,
-                text: "- 历史对话中的用户表达（\(date)；对话 ID：\(message.conversationID)；消息 ID：\(message.id)；可能已过期，仅作来源资料）：『\(excerpt)\(truncation)』"
+                text: "- 历史对话中的用户表达（\(date)；可能已过期，仅作来源资料）：『\(excerpt)\(truncation)』"
             )
         }
         let ranked = (rankedGoals + rankedClaims + rankedReferences + rankedHistory).sorted {

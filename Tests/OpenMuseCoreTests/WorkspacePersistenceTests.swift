@@ -198,9 +198,10 @@ final class WorkspacePersistenceTests: XCTestCase {
 
         let assistantReply = try XCTUnwrap(model.messages.first(where: { $0.role == .assistant }))
         XCTAssertEqual(assistantReply.status, "failed")
-        XCTAssertTrue(assistantReply.content.contains("OpenMuse 已拦截"))
+        XCTAssertTrue(assistantReply.content.contains("内部内容，已拦下且没有保存"))
         XCTAssertFalse(assistantReply.content.contains(ModelPromptEnvelope.referenceOpen))
         XCTAssertFalse(assistantReply.content.contains("OPENMUSE_USER_MEMORY_BEGIN"))
+        XCTAssertFalse(assistantReply.content.contains("消息时间元数据"))
         XCTAssertEqual(model.activities.first?.status, "failed")
     }
 
@@ -228,10 +229,12 @@ final class WorkspacePersistenceTests: XCTestCase {
         let captured = try XCTUnwrap(capturedValue)
         XCTAssertTrue(captured.systemPrompt.contains("IANA 时区为 \(currentZone)"))
         XCTAssertTrue(captured.systemPrompt.contains("不能把旧消息的日期锚点沿用到本轮"))
+        XCTAssertTrue(captured.systemPrompt.contains("近期聊天的时间索引（内部信息"))
         let currentTurn = try XCTUnwrap(captured.messages.last?.content)
         XCTAssertTrue(currentTurn.contains("今晚训练暂停。"))
-        XCTAssertTrue(currentTurn.contains("发送时记录"))
-        XCTAssertTrue(currentTurn.contains(ConversationTemporalContext.messageMetadata(
+        XCTAssertFalse(currentTurn.contains("发送时区已记录"))
+        XCTAssertFalse(currentTurn.contains("消息时间元数据"))
+        XCTAssertTrue(captured.systemPrompt.contains(ConversationTemporalContext.messageMetadata(
             createdAt: userMessage.createdAt,
             timeZoneIdentifier: currentZone,
             fallbackTimeZoneIdentifier: currentZone
@@ -876,8 +879,8 @@ final class WorkspacePersistenceTests: XCTestCase {
             relatedConversationIDs: ["current-chat"]
         )
 
-        XCTAssertTrue(snapshot.text.contains("history-user-trip"))
-        XCTAssertTrue(snapshot.text.contains("时区：Asia/Shanghai；发送时记录"))
+        XCTAssertFalse(snapshot.text.contains("history-user-trip"), "Internal database IDs are not useful to the model.")
+        XCTAssertTrue(snapshot.text.contains("Asia/Shanghai（发送时区已记录）"))
         XCTAssertTrue(snapshot.text.contains("可能已过期，仅作来源资料"))
         XCTAssertFalse(snapshot.text.contains("imported-user-trip"))
         XCTAssertFalse(snapshot.text.contains("current-user-trip"))
@@ -908,7 +911,8 @@ final class WorkspacePersistenceTests: XCTestCase {
 
         let snapshot = try files.promptContextSnapshot(contextWindow: 8_192, query: "帮我安排一次出行")
 
-        XCTAssertTrue(snapshot.text.contains("paraphrased-travel-history"), "The local alias map should bridge 出行 and 旅游.")
+        XCTAssertTrue(snapshot.text.contains("我计划去恩施旅游时喜欢慢慢玩"), "The local alias map should bridge 出行 and 旅游 without exposing the database ID.")
+        XCTAssertFalse(snapshot.text.contains("paraphrased-travel-history"), "Internal database IDs are not useful to the model.")
         XCTAssertTrue(snapshot.text.contains("我偏好出游时不赶行程"), "Structured travel preferences should be recalled for a paraphrased travel request.")
         XCTAssertFalse(snapshot.text.contains("unrelated-language-history"), "Travel aliases must not turn unrelated language-learning history into a match.")
     }
@@ -4056,9 +4060,9 @@ final class WorkspacePersistenceTests: XCTestCase {
         try SecureStore.saveAPIKey("openmuse-side-context-test", for: configuration)
         defer { try? SecureStore.deleteAPIKey(for: configuration) }
         let workspace = directory.appendingPathComponent("workspace", isDirectory: true)
-        let recorder = TranscriptRecorder()
+        let recorder = FullTranscriptRecorder()
         let model = OpenMuseAppModel(
-            runtimeOverride: AttachmentCaptureRuntime(recorder: recorder),
+            runtimeOverride: FullTranscriptCaptureRuntime(recorder: recorder),
             workspaceRootOverride: workspace,
             configurationOverride: configuration,
             startMacBridge: false
@@ -4079,13 +4083,18 @@ final class WorkspacePersistenceTests: XCTestCase {
 
         await model.send("继续讨论旅行节奏。")
 
-        let sent = await recorder.messages()
-        let parentContext = try XCTUnwrap(sent.first(where: { $0.content.contains("<openmuse-parent-conversation>") }))
-        XCTAssertFalse(parentContext.content.contains("OLDER_PRIVATE_TOPIC"))
-        XCTAssertTrue(parentContext.content.contains("最近在讨论恩施旅行"))
-        XCTAssertTrue(parentContext.content.contains("[已截短]"))
-        XCTAssertFalse(parentContext.content.contains("unavailable-attachment"))
-        XCTAssertFalse(parentContext.content.contains("<openmuse-attachment"))
+        let capturedValue = await recorder.latest()
+        let captured = try XCTUnwrap(capturedValue)
+        let sent = captured.messages
+        let currentTurn = try XCTUnwrap(sent.last(where: { $0.role == "user" }))
+        XCTAssertEqual(sent.filter { $0.role == "user" }.count, 1, "A side-chat parent excerpt must not become a second user turn.")
+        XCTAssertTrue(currentTurn.content.contains(ModelPromptEnvelope.parentOpen))
+        XCTAssertFalse(currentTurn.content.contains("OLDER_PRIVATE_TOPIC"))
+        XCTAssertTrue(currentTurn.content.contains("最近在讨论恩施旅行"))
+        XCTAssertTrue(currentTurn.content.contains("[已截短]"))
+        XCTAssertFalse(currentTurn.content.contains("unavailable-attachment"))
+        XCTAssertFalse(currentTurn.content.contains("<openmuse-attachment"))
+        XCTAssertTrue(captured.systemPrompt.contains("主聊摘录的时间索引（内部信息"))
         XCTAssertFalse(sent.contains(where: { $0.content.contains("OLDER_PRIVATE_TOPIC") }))
     }
 
@@ -4427,6 +4436,9 @@ private struct InternalContextLeakRuntime: ModelRuntime {
         <openmuse-reference-data>
         USER.md
         <!-- OPENMUSE_USER_MEMORY_BEGIN -->
+        【OpenMuse 消息时间元数据（不是用户原话）】
+        本地时间：2026-10-15 16:57:53；时区：Asia/Shanghai；发送时记录
+        【消息内容】
         """
     }
 }
