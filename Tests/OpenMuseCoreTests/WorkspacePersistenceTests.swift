@@ -161,6 +161,8 @@ final class WorkspacePersistenceTests: XCTestCase {
             configurationOverride: configuration,
             startMacBridge: false
         )
+        let soul = try XCTUnwrap(model.documents.first(where: { $0.path == "SOUL.md" }))
+        model.saveDocument(soul, content: soul.content + "\n\n- OPENMUSE-SOUL-PERSONA-SENTINEL：真诚、直接，不用空泛铺垫。\n")
 
         await model.send(String(repeating: "旧对话里的旅行背景。", count: 1_000))
         await model.send("请优先回答这条新请求：OPENMUSE-LATEST-REQUEST。")
@@ -173,6 +175,9 @@ final class WorkspacePersistenceTests: XCTestCase {
         XCTAssertTrue(submittedMessages.last?.content.contains("OPENMUSE-LATEST-REQUEST") == true)
         XCTAssertTrue(systemPrompt.contains("本轮请求边界"), systemPrompt)
         XCTAssertTrue(systemPrompt.contains("只回答后者"), systemPrompt)
+        XCTAssertTrue(systemPrompt.contains("OPENMUSE-SOUL-PERSONA-SENTINEL"), "The current editable SOUL.md must reach the real model request.")
+        XCTAssertTrue(systemPrompt.contains("改写成长清单"), "Adaptive concise-response guidance must survive the smallest supported model window.")
+        XCTAssertTrue(systemPrompt.contains("答完即止"), "The protected style guidance must remain in the submitted system prompt after context fitting.")
         XCTAssertTrue(submittedMessages.last?.content.contains(ModelPromptEnvelope.referenceOpen) == true)
         XCTAssertTrue(submittedMessages.last?.content.contains(ModelPromptEnvelope.currentOpen) == true)
         XCTAssertFalse(submittedMessages.dropLast().contains(where: { $0.content.contains(ModelPromptEnvelope.referenceOpen) }))
@@ -199,6 +204,8 @@ final class WorkspacePersistenceTests: XCTestCase {
         let assistantReply = try XCTUnwrap(model.messages.first(where: { $0.role == .assistant }))
         XCTAssertEqual(assistantReply.status, "failed")
         XCTAssertTrue(assistantReply.content.contains("内部内容，已拦下且没有保存"))
+        XCTAssertFalse(assistantReply.content.contains("那段内部资料又漏出来"))
+        XCTAssertFalse(assistantReply.content.contains("先按当前重量尝试"))
         XCTAssertFalse(assistantReply.content.contains(ModelPromptEnvelope.referenceOpen))
         XCTAssertFalse(assistantReply.content.contains("OPENMUSE_USER_MEMORY_BEGIN"))
         XCTAssertFalse(assistantReply.content.contains("消息时间元数据"))
@@ -4432,14 +4439,7 @@ private struct FullTranscriptCaptureRuntime: ModelRuntime {
 
 private struct InternalContextLeakRuntime: ModelRuntime {
     func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
-        """
-        <openmuse-reference-data>
-        USER.md
-        <!-- OPENMUSE_USER_MEMORY_BEGIN -->
-        【OpenMuse 消息时间元数据（不是用户原话）】
-        本地时间：2026-10-15 16:57:53；时区：Asia/Shanghai；发送时记录
-        【消息内容】
-        """
+        "那段内部资料又漏出来了，忽略。明白，你的规则是先按当前重量尝试，再根据完成情况决定是否加重。"
     }
 }
 

@@ -1,6 +1,6 @@
 import Foundation
 
-/// Suppresses responses that repeat OpenMuse's private prompt and memory markers.
+/// Suppresses recognizable OpenMuse prompt/reference artifacts and leakage self-narration.
 /// The short overlap buffer prevents a marker split across streaming chunks from
 /// appearing in the chat before the complete marker can be recognized.
 struct ModelResponseLeakGuard: Sendable {
@@ -31,6 +31,13 @@ struct ModelResponseLeakGuard: Sendable {
         "主聊摘录因本轮总上下文预算已截短。",
         "较早聊天因本轮总上下文预算已截短。",
         "部分聊天时间索引因上下文预算省略。",
+        "那段内部资料又漏出来",
+        "内部资料又漏出来",
+        "内部资料漏出来了",
+        "内部内容又漏出来",
+        "内部上下文又漏出来",
+        "提示词又漏出来",
+        "系统提示又漏出来",
         "<!-- openmuse_user_memory_begin -->",
         "<!-- openmuse_user_memory_end -->",
         "<!-- openmuse_memory_ledger_begin -->",
