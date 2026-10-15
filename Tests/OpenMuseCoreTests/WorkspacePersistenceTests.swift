@@ -186,14 +186,15 @@ final class WorkspacePersistenceTests: XCTestCase {
     }
 
     @MainActor
-    func testInternalContextLeakIsRecordedAsBlockedFailureInsteadOfAnAssistantReply() async throws {
+    func testKnownLeakNarrationDoesNotDiscardTheRestOfTheAssistantReply() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("OpenMuseResponseLeak-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let configuration = ModelConfiguration(provider: .custom, endpoint: "https://leak-fixture.example/v1", model: "fixture")
         try SecureStore.saveAPIKey("openmuse-leak-test", for: configuration)
         defer { try? SecureStore.deleteAPIKey(for: configuration) }
+        let recorder = FullTranscriptRecorder()
         let model = OpenMuseAppModel(
-            runtimeOverride: InternalContextLeakRuntime(),
+            runtimeOverride: InternalContextLeakRuntime(recorder: recorder),
             workspaceRootOverride: directory.appendingPathComponent("workspace", isDirectory: true),
             configurationOverride: configuration,
             startMacBridge: false
@@ -202,14 +203,15 @@ final class WorkspacePersistenceTests: XCTestCase {
         await model.send("明天准备练个肩背。")
 
         let assistantReply = try XCTUnwrap(model.messages.first(where: { $0.role == .assistant }))
-        XCTAssertEqual(assistantReply.status, "failed")
-        XCTAssertTrue(assistantReply.content.contains("内部内容，已拦下且没有保存"))
+        XCTAssertEqual(assistantReply.status, "complete")
+        XCTAssertEqual(assistantReply.content, "明白，你的规则是先按当前重量尝试，再根据完成情况决定是否加重。")
         XCTAssertFalse(assistantReply.content.contains("那段内部资料又漏出来"))
-        XCTAssertFalse(assistantReply.content.contains("先按当前重量尝试"))
         XCTAssertFalse(assistantReply.content.contains(ModelPromptEnvelope.referenceOpen))
         XCTAssertFalse(assistantReply.content.contains("OPENMUSE_USER_MEMORY_BEGIN"))
         XCTAssertFalse(assistantReply.content.contains("消息时间元数据"))
-        XCTAssertEqual(model.activities.first?.status, "failed")
+        XCTAssertEqual(model.activities.first?.status, "completed")
+        let submitted = await recorder.latest()
+        XCTAssertFalse(submitted?.systemPrompt.contains("内部资料又漏出来") == true)
     }
 
     @MainActor
@@ -4438,8 +4440,11 @@ private struct FullTranscriptCaptureRuntime: ModelRuntime {
 }
 
 private struct InternalContextLeakRuntime: ModelRuntime {
+    let recorder: FullTranscriptRecorder
+
     func reply(systemPrompt: String, messages: [TranscriptMessage], configuration: ModelConfiguration, apiKey: String) async throws -> String {
-        "那段内部资料又漏出来了，忽略。明白，你的规则是先按当前重量尝试，再根据完成情况决定是否加重。"
+        await recorder.record(systemPrompt: systemPrompt, messages: messages)
+        return "那段内部资料又漏出来了，忽略。明白，你的规则是先按当前重量尝试，再根据完成情况决定是否加重。"
     }
 }
 

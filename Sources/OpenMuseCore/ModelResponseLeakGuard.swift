@@ -1,13 +1,24 @@
 import Foundation
 
-/// Suppresses recognizable OpenMuse prompt/reference artifacts and leakage self-narration.
-/// The short overlap buffer prevents a marker split across streaming chunks from
-/// appearing in the chat before the complete marker can be recognized.
+/// Blocks unmistakable OpenMuse prompt/reference artifacts and removes a small,
+/// explicitly observed model self-narration sentence without discarding the
+/// useful answer around it. The overlap buffer prevents either pattern from
+/// appearing when a streaming provider splits it across chunks.
 struct ModelResponseLeakGuard: Sendable {
+    struct SanitizedResponse: Sendable {
+        let text: String
+        let didDetectInternalMarker: Bool
+        let didRemoveLeakNarration: Bool
+    }
+
     private(set) var didDetectInternalMarker = false
+    private(set) var didRemoveLeakNarration = false
     private var pending = ""
 
-    private static let markers = [
+    /// These are protocol envelopes and exact internal metadata labels. A hit
+    /// means the model returned OpenMuse's serialized context, so the response
+    /// must not be shown or saved.
+    private static let internalMarkers = [
         ModelPromptEnvelope.referenceOpen,
         ModelPromptEnvelope.referenceClose,
         ModelPromptEnvelope.currentOpen,
@@ -31,13 +42,6 @@ struct ModelResponseLeakGuard: Sendable {
         "主聊摘录因本轮总上下文预算已截短。",
         "较早聊天因本轮总上下文预算已截短。",
         "部分聊天时间索引因上下文预算省略。",
-        "那段内部资料又漏出来",
-        "内部资料又漏出来",
-        "内部资料漏出来了",
-        "内部内容又漏出来",
-        "内部上下文又漏出来",
-        "提示词又漏出来",
-        "系统提示又漏出来",
         "<!-- openmuse_user_memory_begin -->",
         "<!-- openmuse_user_memory_end -->",
         "<!-- openmuse_memory_ledger_begin -->",
@@ -49,48 +53,108 @@ struct ModelResponseLeakGuard: Sendable {
         "<!-- openmuse-memory-claim:"
     ].map { $0.lowercased() }
 
+    /// Exact, previously observed self-narration sentences. They do not expose
+    /// private context by themselves; remove them and keep the actual answer.
+    /// Keep this list narrow so ordinary discussion of prompts or memories is
+    /// not treated as an internal-context leak.
+    private static let leakNarrationSentences = [
+        "那段内部资料又漏出来了，忽略。",
+        "那段内部资料又漏出来了，先忽略。",
+        "那段内部资料又漏出来了。",
+        "内部资料又漏出来了，忽略。",
+        "内部资料又漏出来了。",
+        "内部资料漏出来了，忽略。",
+        "内部资料漏出来了。",
+        "内部内容又漏出来了，忽略。",
+        "内部上下文又漏出来了，忽略。",
+        "提示词又漏出来了，忽略。",
+        "系统提示又漏出来了，忽略。"
+    ].map { $0.lowercased() }
+
+    private static var allPatterns: [String] {
+        internalMarkers + leakNarrationSentences
+    }
+
     mutating func append(_ fragment: String) -> String {
         guard !didDetectInternalMarker else { return "" }
         pending += fragment
-        let normalized = pending.lowercased()
-        if Self.markers.contains(where: { normalized.contains($0) }) {
-            didDetectInternalMarker = true
+        return drain(final: false)
+    }
+
+    mutating func finish() -> String {
+        guard !didDetectInternalMarker else {
             pending = ""
             return ""
         }
+        return drain(final: true)
+    }
 
-        var withheldCharacters = 0
-        for marker in Self.markers {
-            let maximumOverlap = min(pending.count, marker.count - 1)
-            guard maximumOverlap > 0 else { continue }
+    private mutating func drain(final: Bool) -> String {
+        var output = ""
+        var remaining = pending
+        pending = ""
+
+        while !remaining.isEmpty {
+            let normalized = remaining.lowercased()
+            if Self.internalMarkers.contains(where: { normalized.contains($0) }) {
+                didDetectInternalMarker = true
+                pending = ""
+                return ""
+            }
+
+            if let match = Self.earliestMatch(in: remaining, patterns: Self.leakNarrationSentences) {
+                output += String(remaining[..<match.lowerBound])
+                remaining = String(remaining[match.upperBound...])
+                didRemoveLeakNarration = true
+                continue
+            }
+
+            guard !final else {
+                output += remaining
+                break
+            }
+
+            let withheldCharacters = Self.maximumPossiblePatternOverlap(in: normalized)
+            let safeCount = remaining.count - withheldCharacters
+            output += String(remaining.prefix(safeCount))
+            pending = String(remaining.suffix(withheldCharacters))
+            break
+        }
+
+        return output
+    }
+
+    static func sanitize(_ text: String) -> SanitizedResponse {
+        var guardrail = ModelResponseLeakGuard()
+        let safeText = guardrail.append(text) + guardrail.finish()
+        return SanitizedResponse(
+            text: safeText,
+            didDetectInternalMarker: guardrail.didDetectInternalMarker,
+            didRemoveLeakNarration: guardrail.didRemoveLeakNarration
+        )
+    }
+
+    static func containsInternalMarker(_ text: String) -> Bool {
+        let normalized = text.lowercased()
+        return internalMarkers.contains(where: { normalized.contains($0) })
+    }
+
+    private static func earliestMatch(in text: String, patterns: [String]) -> Range<String.Index>? {
+        patterns
+            .compactMap { text.range(of: $0, options: [.caseInsensitive]) }
+            .min { $0.lowerBound < $1.lowerBound }
+    }
+
+    private static func maximumPossiblePatternOverlap(in normalizedText: String) -> Int {
+        allPatterns.reduce(into: 0) { withheldCharacters, pattern in
+            let maximumOverlap = min(normalizedText.count, pattern.count - 1)
+            guard maximumOverlap > withheldCharacters else { return }
             for overlap in stride(from: maximumOverlap, through: 1, by: -1) {
-                if normalized.hasSuffix(String(marker.prefix(overlap))) {
+                if normalizedText.hasSuffix(String(pattern.prefix(overlap))) {
                     withheldCharacters = max(withheldCharacters, overlap)
                     break
                 }
             }
         }
-
-        let safeCount = pending.count - withheldCharacters
-        let safe = String(pending.prefix(safeCount))
-        pending = String(pending.suffix(withheldCharacters))
-        return safe
-    }
-
-    mutating func finish() -> String {
-        guard !didDetectInternalMarker else { return "" }
-        if Self.markers.contains(where: { pending.lowercased().contains($0) }) {
-            didDetectInternalMarker = true
-            pending = ""
-            return ""
-        }
-        let tail = pending
-        pending = ""
-        return tail
-    }
-
-    static func containsInternalMarker(_ text: String) -> Bool {
-        let normalized = text.lowercased()
-        return markers.contains(where: { normalized.contains($0) })
     }
 }

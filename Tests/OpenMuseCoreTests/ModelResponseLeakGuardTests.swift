@@ -50,19 +50,33 @@ final class ModelResponseLeakGuardTests: XCTestCase {
         XCTAssertFalse(ModelResponseLeakGuard.containsInternalMarker("广州明天晴，最高温 31°C，早晚比较凉。"))
     }
 
-    func testNaturalLanguageLeakNarrationIsBlockedWithoutMatchingOrdinaryContextMentions() {
-        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("那段内部资料又漏出来了，忽略。"))
-        XCTAssertTrue(ModelResponseLeakGuard.containsInternalMarker("内部资料又漏出来了"))
-        XCTAssertFalse(ModelResponseLeakGuard.containsInternalMarker("我会结合你提供的内部资料回答。"))
+    func testKnownLeakNarrationIsRemovedWithoutDiscardingUsefulAnswer() {
+        let result = ModelResponseLeakGuard.sanitize(
+            "那段内部资料又漏出来了，忽略。明白，你做了 4 组，每组 8 次。"
+        )
+
+        XCTAssertFalse(result.didDetectInternalMarker)
+        XCTAssertTrue(result.didRemoveLeakNarration)
+        XCTAssertEqual(result.text, "明白，你做了 4 组，每组 8 次。")
     }
 
-    func testNaturalLanguageLeakNarrationSplitAcrossStreamingChunksIsNeverEmitted() {
+    func testKnownLeakNarrationSplitAcrossStreamingChunksIsRemovedButAnswerStreams() {
         var guardrail = ModelResponseLeakGuard()
 
         XCTAssertEqual(guardrail.append("那段内部资料又漏"), "")
-        XCTAssertEqual(guardrail.append("出来了，忽略。接下来是正常回答。"), "")
-        XCTAssertTrue(guardrail.didDetectInternalMarker)
+        XCTAssertEqual(guardrail.append("出来了，忽略。接下来是正常回答。"), "接下来是正常回答。")
+        XCTAssertFalse(guardrail.didDetectInternalMarker)
+        XCTAssertTrue(guardrail.didRemoveLeakNarration)
         XCTAssertEqual(guardrail.finish(), "")
+    }
+
+    func testOrdinaryInternalContextDiscussionIsNotFiltered() {
+        let text = "我会结合你提供的内部资料回答。"
+        let result = ModelResponseLeakGuard.sanitize(text)
+
+        XCTAssertFalse(result.didDetectInternalMarker)
+        XCTAssertFalse(result.didRemoveLeakNarration)
+        XCTAssertEqual(result.text, text)
     }
 
     func testTemporalWrapperSplitAcrossChunksIsNeverEmitted() {
