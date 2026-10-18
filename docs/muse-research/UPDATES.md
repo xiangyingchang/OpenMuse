@@ -1,5 +1,12 @@
 # 研究更新记录
 
+## 2026-10-18：Muse Wonder 的 Active Memory 与 Active Focus
+
+- Meta 官方研究文章、新闻稿与 Model Card 新增了 Active Memory / Active Focus 的明确能力描述。前者强调跨对话保留重要背景并按当前任务主动取回；后者强调长任务中尝试替代路径、处理阻碍、适应新信息、必要时澄清并在重要操作前确认。
+- Model Card 将记忆与持续执行分开评估：MemoryBench 包含 64K–100K 多轮对话、干扰项、冲突与后续更新；FocusBench 检查跨多轮交互处理动态阻碍的能力。评估设计不能当作生产机制说明。
+- 这补充了“持续记忆必须兼顾恰当检索”的官方能力目标，但没有披露文件/数据库 schema、记忆写入与遗忘算法，也没有确认 Muse 使用 dreaming。公告称 Muse Wonder 将逐步进入 Muse；没有据此声称用户当前版本已经获得新模型。
+- 社区 `main`/`HEAD` 仍是 `38bbb45a2c5a0f70de975f6387385770b9ad8aac`，无新增 commit。来源、OpenMuse 设计影响、原始材料校验见 [专题记录](ACTIVE_MEMORY_AND_FOCUS_2026-10-18.md)。
+
 ## 2026-10-12：OpenClaw Dreaming 与反思文件边界复核
 
 - 复核 OpenClaw 官方当前 [Dreaming](https://docs.openclaw.ai/concepts/dreaming) 和 [Memory architecture](https://docs.openclaw.ai/concepts/memory-architecture)：Light/REM 整理短期候选与主题，Deep 在确定性门槛后才改写精选 `MEMORY.md`；`DREAMS.md` 是供人查看的日记和变更摘要，不是长期记忆晋升来源。
