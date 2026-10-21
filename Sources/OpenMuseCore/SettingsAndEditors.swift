@@ -1904,59 +1904,168 @@ public struct MemoryImportView: View {
 public struct WorkspaceDocumentEditor: View {
     @ObservedObject private var model: OpenMuseAppModel
     @Environment(\.dismiss) private var dismiss
-    private let document: WorkspaceDocument
+    @State private var document: WorkspaceDocument
     @State private var content: String
+    @State private var isEditingSource = false
     @State private var showRestoreConfirmation = false
+    @State private var saveError: String?
 
     public init(model: OpenMuseAppModel, document: WorkspaceDocument) {
         self.model = model
-        self.document = document
+        _document = State(initialValue: document)
         _content = State(initialValue: document.content)
     }
 
     public var body: some View {
         VStack(spacing: 0) {
-            sheetHeader(title: document.path, subtitle: "UTF-8 Markdown · 修订 \(document.revision)")
+            documentHeader
             if document.path == "SOUL.md" {
                 Text("About this file. This is OpenMuse's persona. It sets out the values and habits OpenMuse tries to hold to in every conversation. It starts from a template that ships with OpenMuse. OpenMuse may refine it over time and tells you when it does. You can edit it at any time. This note is not part of the file.")
                     .font(.caption)
                     .foregroundStyle(EditorPalette.subtle)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+                    .background(EditorPalette.panel, in: RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal, 16)
                     .padding(.bottom, 10)
             }
-            TextEditor(text: $content)
-                .font(.system(.body, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .foregroundStyle(EditorPalette.text)
-                .padding(.horizontal, 12)
-                .padding(.bottom, 12)
-            HStack {
+            if isEditingSource {
+                TextEditor(text: $content)
+                    .font(.system(.body, design: .monospaced))
+                    .scrollContentBackground(.hidden)
+                    .foregroundStyle(EditorPalette.text)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 12)
+                    .accessibilityIdentifier("workspace-document-source-editor")
+            } else {
+                ScrollView {
+                    MarkdownContentView(
+                        content: MarkdownDocumentDisplaySource.readableMarkdown(from: document.content),
+                        bodyFont: .body,
+                        lineSpacing: 8,
+                        showsMemoryClaimMetadata: true
+                    )
+                    .padding(.horizontal, 18)
+                    .padding(.top, 4)
+                    .padding(.bottom, 20)
+                }
+                .accessibilityIdentifier("workspace-document-preview")
+            }
+            if let saveError {
+                Text(saveError)
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+            }
+            documentActions
+        }
+        .background(EditorPalette.background)
+        .frame(minWidth: 380, minHeight: 560)
+        .confirmationDialog("用上个版本替换当前编辑内容？", isPresented: $showRestoreConfirmation, titleVisibility: .visible) {
+            Button("恢复为新版本", role: .destructive, action: restorePreviousRevision)
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("旧版本会保留；恢复操作会保存为一条新的修订。")
+        }
+    }
+
+    private var documentHeader: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .top, spacing: 12) {
+                Text(document.path)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(EditorPalette.text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 4)
+                if !isEditingSource {
+                    Button {
+                        content = document.content
+                        saveError = nil
+                        isEditingSource = true
+                    } label: {
+                        Label("编辑源码", systemImage: "chevron.left.forwardslash.chevron.right")
+                            .labelStyle(.titleAndIcon)
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(EditorPalette.blue)
+                    .accessibilityIdentifier("workspace-document-edit-source")
+                }
+            }
+            Text("\(isEditingSource ? "源码编辑" : "Markdown 阅读视图") · 修订 \(document.revision)")
+                .font(.caption)
+                .foregroundStyle(EditorPalette.subtle)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 18)
+        .padding(.top, 19)
+        .padding(.bottom, 15)
+    }
+
+    @ViewBuilder
+    private var documentActions: some View {
+        HStack {
+            if isEditingSource {
+                Button("取消") {
+                    content = document.content
+                    saveError = nil
+                    isEditingSource = false
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("workspace-document-cancel-edits")
+                Spacer()
+                Button("保存并预览", action: saveAndPreview)
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("workspace-document-save-preview")
+            } else {
                 if model.previousDocumentRevision(path: document.path) != nil {
                     Button("恢复上个版本") { showRestoreConfirmation = true }
                         .buttonStyle(.bordered)
                 }
                 Spacer()
-                Button("取消") { dismiss() }.buttonStyle(.bordered)
-                Button("保存") { model.saveDocument(document, content: content); dismiss() }
-                    .buttonStyle(.borderedProminent)
+                Button("完成") { dismiss() }.buttonStyle(.bordered)
             }
-            .padding(14)
         }
-        .background(EditorPalette.background)
-        .frame(minWidth: 380, minHeight: 560)
-        .confirmationDialog("用上个版本替换当前编辑内容？", isPresented: $showRestoreConfirmation, titleVisibility: .visible) {
-            Button("恢复为新版本", role: .destructive) {
-                if let previous = model.previousDocumentRevision(path: document.path) {
-                    content = previous.content
-                    model.saveDocument(document, content: previous.content)
-                    dismiss()
-                }
-            }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("旧版本会保留；恢复操作会保存为一条新的修订。")
+        .padding(14)
+    }
+
+    private func saveAndPreview() {
+        guard content != document.content else {
+            saveError = nil
+            isEditingSource = false
+            return
         }
+
+        let previousRevision = document.revision
+        model.saveDocument(document, content: content)
+        guard let savedDocument = model.documents.first(where: { $0.path == document.path }),
+              savedDocument.revision > previousRevision else {
+            saveError = model.statusText ?? "保存没有完成，请检查内容后重试。"
+            return
+        }
+        document = savedDocument
+        content = savedDocument.content
+        saveError = nil
+        isEditingSource = false
+    }
+
+    private func restorePreviousRevision() {
+        guard let previous = model.previousDocumentRevision(path: document.path) else { return }
+        let previousRevision = document.revision
+        model.saveDocument(document, content: previous.content)
+        guard let restored = model.documents.first(where: { $0.path == document.path }),
+              restored.revision > previousRevision else {
+            saveError = model.statusText ?? "恢复没有完成，请重试。"
+            return
+        }
+        document = restored
+        content = restored.content
+        saveError = nil
+        isEditingSource = false
     }
 }
 

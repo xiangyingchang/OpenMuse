@@ -1780,11 +1780,13 @@ private struct ArtifactExportDocument: FileDocument {
 private enum MarkdownDisplayBlock: Identifiable {
     case line(index: Int, text: String)
     case table(ParsedMarkdownTable, lastLineIndex: Int)
+    case code(index: Int, language: String?, source: String)
 
     var id: String {
         switch self {
         case .line(let index, _): "line-\(index)"
         case .table(let table, _): "table-\(table.id)"
+        case .code(let index, _, _): "code-\(index)"
         }
     }
 }
@@ -1793,6 +1795,7 @@ struct MarkdownContentView: View {
     let content: String
     var bodyFont: Font = .body
     var lineSpacing: CGFloat = 12
+    var showsMemoryClaimMetadata = false
     @State private var expandedTable: ParsedMarkdownTable?
 
     private var blocks: [MarkdownDisplayBlock] {
@@ -1800,6 +1803,17 @@ struct MarkdownContentView: View {
         var result: [MarkdownDisplayBlock] = []
         var index = 0
         while index < lines.count {
+            if let fence = codeFenceOpening(in: lines[index]) {
+                let start = index + 1
+                var end = start
+                while end < lines.count, !codeFenceCloses(lines[end], marker: fence.marker, minimumLength: fence.length) {
+                    end += 1
+                }
+                let source = lines[start..<end].joined(separator: "\n")
+                result.append(.code(index: index, language: fence.language, source: source))
+                index = end < lines.count ? end + 1 : end
+                continue
+            }
             if let block = MarkdownTableParser.parse(lines: lines, startingAt: index) {
                 result.append(.table(block.table, lastLineIndex: block.lastLineIndex))
                 index = block.lastLineIndex + 1
@@ -1817,6 +1831,7 @@ struct MarkdownContentView: View {
                 switch block {
                 case .line(_, let line): lineView(line)
                 case .table(let table, _): tableView(table)
+                case .code(_, let language, let source): codeBlockView(language: language, source: source)
                 }
             }
         }
@@ -1832,6 +1847,19 @@ struct MarkdownContentView: View {
             EmptyView()
         } else if ["---", "***", "___"].contains(line.trimmingCharacters(in: .whitespaces)) {
             Rectangle().fill(OpenMusePalette.border).frame(height: 1)
+        } else if showsMemoryClaimMetadata,
+                  let claim = MarkdownDocumentDisplaySource.memoryClaimDisplay(in: line) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(alignment: .top, spacing: 9) {
+                    Circle().fill(OpenMusePalette.blue).frame(width: 5, height: 5).padding(.top, 8)
+                    markdownText(claim.value).font(bodyFont).foregroundStyle(OpenMusePalette.text)
+                }
+                Text(claim.metadata)
+                    .font(.caption)
+                    .foregroundStyle(OpenMusePalette.subtle)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 14)
+            }
         } else if line.hasPrefix("### ") {
             markdownText(String(line.dropFirst(4))).font(bodyFont.weight(.semibold)).foregroundStyle(OpenMusePalette.text)
         } else if line.hasPrefix("## ") {
@@ -1859,6 +1887,42 @@ struct MarkdownContentView: View {
               line.index(after: delimiter) < line.endIndex,
               line[line.index(after: delimiter)].isWhitespace else { return nil }
         return (String(line[...delimiter]), String(line[line.index(after: delimiter)...]).trimmingCharacters(in: .whitespaces))
+    }
+
+    private func codeFenceOpening(in line: String) -> (marker: Character, length: Int, language: String?)? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard let marker = trimmed.first, marker == "`" || marker == "~" else { return nil }
+        let length = trimmed.prefix(while: { $0 == marker }).count
+        guard length >= 3 else { return nil }
+        let info = trimmed.dropFirst(length).trimmingCharacters(in: .whitespaces)
+        return (marker, length, info.isEmpty ? nil : info)
+    }
+
+    private func codeFenceCloses(_ line: String, marker: Character, minimumLength: Int) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return trimmed.prefix(while: { $0 == marker }).count >= minimumLength
+    }
+
+    private func codeBlockView(language: String?, source: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let language, !language.isEmpty {
+                Text(language)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(OpenMusePalette.subtle)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 10)
+            }
+            ScrollView(.horizontal) {
+                Text(source.isEmpty ? " " : source)
+                    .font(.system(.callout, design: .monospaced))
+                    .foregroundStyle(OpenMusePalette.text)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+            }
+            .scrollIndicators(.visible)
+        }
+        .background(OpenMusePalette.panel, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func markdownText(_ value: String) -> Text {
