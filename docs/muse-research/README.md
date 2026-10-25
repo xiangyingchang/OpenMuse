@@ -31,6 +31,8 @@
 
 ## 本轮新增
 
+[Muse Code 的文件记忆与回合观察器（2026-10-25）](MUSE_CODE_MEMORY_RUNTIME_2026-10-25.md)：Meta 官方开发者资料说明的本地文件记忆范围、按需读取、背景观察器与活跃会话新记忆可见性。该资料只适用于 Muse Code，不证明消费者 Muse App 使用相同机制。
+
 [Muse 官方公开机制补充核对（2026-10-11）](OFFICIAL_TECHNICAL_REVIEW_2026-10-11.md)：安全技术文章对 VM 数据记录、结构化状态、文件备份、授权边界和记忆机制未知项的补充分析。
 
 [Muse Wonder 的 Active Memory 与 Active Focus（2026-10-18）](ACTIVE_MEMORY_AND_FOCUS_2026-10-18.md)：Meta 对跨对话记忆检索、长任务推进及对应评估范围的最新公开说明；不代表其披露了生产存储或 dreaming 算法。
