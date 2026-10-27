@@ -72,3 +72,11 @@
 ![OpenMuse 图标概念稿 v10](OpenMuse-AppIcon-Concept-v10.png)
 
 参考一款简洁的蓝紫渐变启动器图标，只借鉴高对比白色符号与克制构图，不复制其终端提示符。以两道粗白开放弧围绕中心圆点，保留“开放对话、持续在场、带来一点启发”的含义，并将原有柔和环形简化成清楚的几何轮廓。原稿为 1254×1254 满版方图，无预制圆角；16、32、60、120 像素缩图中仍能辨认开放环与中心点。此稿是新候选，尚未替换 iOS 或 macOS AppIcon，也未做真机外观验收。
+
+## 已接入图标 v11（2026-10-28）
+
+![OpenMuse 圆润人物图标 v11](OpenMuse-AppIcon-Concept-v11.png)
+
+用户选用更圆润的人物标志作为 OpenMuse 新图标。构图保留深绿色人物符号，在透明底原稿上配浅暖色满版底，给图形留出边距；不预制外层圆角，由 iOS/macOS 按各自图标蒙版裁切。该方形主稿同时生成 iOS 1024×1024 单图标和 macOS 16–1024 像素变体；v10 及更早候选继续保留作设计历史。
+
+已接入资源：Apps/iOS/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png 与 Apps/macOS/Assets.xcassets/AppIcon.appiconset/。16×16、32×32 缩图已检查，人物头部和肩部轮廓仍可辨；构建和预览检查记录见 [T99](../ITERATIONS.md#t99-2026-10-28-采用圆润人物标志作为双端-app-图标)。

@@ -911,3 +911,10 @@
 - 产物：`docs/design/OpenMuse-AppIcon-Concept-v10.png`（1254×1254），并在 `docs/design/APP_ICON.md` 保留候选说明。
 - 检查：并排查看参考图和当前 AppIcon；检查 16、32、60、120 像素缩图，开放环和中心点在各尺寸仍可辨。
 - 未验：未替换 Asset Catalog、未构建或安装 App，也未检查真机主屏幕不同图标外观。v10 仍是候选，需用户评审后再决定是否接入。
+
+## T99：2026-10-28 采用圆润人物标志作为双端 App 图标
+
+- 需求：用户先提供透明底的抽象人物标志，要求用作 OpenMuse 新图标，随后指定采用更圆润的版本。以第二份圆润稿为准，不使用第一份较锐利版本。
+- 设计：保留圆头与两侧肩部的原始构图和深绿色识别符号；因原稿为透明底，合成浅暖色满版底并保持等比缩放、留出边距。图标不预制圆角，让 iOS/macOS 使用平台蒙版。
+- 资源：保留 docs/design/OpenMuse-AppIcon-Concept-v11.png 为方形主稿；iOS 使用 1024×1024 母图，macOS 16、32、64、128、256、512、1024 各像素变体均从同一主稿生成。未修改其他界面或资源。
+- 检查：母稿与 Asset Catalog 图标为方形；16×16 与 32×32 缩图中的头部、身体轮廓可辨；iOS Simulator Debug 与 macOS Debug 构建均通过；两个 Asset Catalog 的 Contents.json 校验通过，git diff --check 通过。尚未安装真机或制作 Release 包。
