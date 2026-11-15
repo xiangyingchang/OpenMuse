@@ -11,6 +11,8 @@
 5. [更新记录](UPDATES.md)：追加变化，不覆盖旧结论。
 6. [整体证据分层](../MUSE_MEMORY_RESEARCH.md)：官方、社区与开源实现的区别。
 
+本轮增量：[Muse Spaces、语音与主动运行（2026-11-15）](MUSE_SPACES_AND_ACTIVE_RUNTIME_2026-11-15.md)；社区增量审阅及校验见 [INCREMENTAL_REVIEW_2026-11-15.json](INCREMENTAL_REVIEW_2026-11-15.json)。原始十文件社区快照 `SNAPSHOT.json` 保留在原 commit，不被后续检查覆盖。
+
 7. [iOS 真机交互记录](IOS_INTERACTIONS_2026-10-10.md)：主要页面、状态与未验证操作。
 
 8. [本地截图使用说明](SCREENSHOT_GUIDE.md)：位置、查看顺序、需求映射、私人迁移与缺失处理。
@@ -32,6 +34,8 @@
 ## 本轮新增
 
 [Muse Code 的文件记忆与回合观察器（2026-10-25）](MUSE_CODE_MEMORY_RUNTIME_2026-10-25.md)：Meta 官方开发者资料说明的本地文件记忆范围、按需读取、背景观察器与活跃会话新记忆可见性。该资料只适用于 Muse Code，不证明消费者 Muse App 使用相同机制。
+
+[Muse Spaces、语音与主动运行（2026-11-15）](MUSE_SPACES_AND_ACTIVE_RUNTIME_2026-11-15.md)：官方新增的自定义工作区、后台更新、语音/头像交互，以及 Muse Code 目标调度和后台事件唤醒记录；不代表披露了消费端记忆或 dreaming 算法。
 
 [Muse 官方公开机制补充核对（2026-10-11）](OFFICIAL_TECHNICAL_REVIEW_2026-10-11.md)：安全技术文章对 VM 数据记录、结构化状态、文件备份、授权边界和记忆机制未知项的补充分析。
 

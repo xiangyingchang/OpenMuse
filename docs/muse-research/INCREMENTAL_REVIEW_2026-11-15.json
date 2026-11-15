@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-15",
+  "repository": "https://github.com/win4r/MuseAI-Skills",
+  "baseSnapshot": "SNAPSHOT.json",
+  "baseCommit": "38bbb45a2c5a0f70de975f6387385770b9ad8aac",
+  "headAtCheck": "e222ba4391b6270ba394cd2b8c3809ff959ab609",
+  "commits": [
+    {
+      "commit": "f3c22e35522c9513a4ff12ea1d63255aecd9630a",
+      "date": "2026-11-07T07:57:06-05:00",
+      "subject": "docs: add Bilibili profile links at top of READMEs"
+    },
+    {
+      "commit": "ba179a724d60d3c2242c648f19054a94f6949067",
+      "date": "2026-11-07T08:07:51-05:00",
+      "subject": "docs: make Bilibili links prominent H1 headings"
+    },
+    {
+      "commit": "7a63f8063d89e71313d01490bb004ec03ee4b5c3",
+      "date": "2026-11-07T08:17:13-05:00",
+      "subject": "docs: clarify Bilibili video link heading"
+    },
+    {
+      "commit": "e222ba4391b6270ba394cd2b8c3809ff959ab609",
+      "date": "2026-11-07T08:27:17-05:00",
+      "subject": "docs: use requested Bilibili heading text"
+    }
+  ],
+  "changedFiles": [
+    {
+      "path": "README.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/e222ba4391b6270ba394cd2b8c3809ff959ab609/README.md",
+      "bytes": 47698,
+      "sha256": "e717cd8d18f1cd3978a2a3f225618fe739cab3ca91d1d9162e577073e44172fd"
+    },
+    {
+      "path": "README.en.md",
+      "url": "https://github.com/win4r/MuseAI-Skills/blob/e222ba4391b6270ba394cd2b8c3809ff959ab609/README.en.md",
+      "bytes": 50074,
+      "sha256": "a126cc41a6a500475df8e26cc7b1d16496844a7e6aa9473b205d904544af3562"
+    }
+  ],
+  "finding": "The four commits change only the two top-level READMEs by adding and refining Bilibili profile/video link headings. No memory, dreaming, persona, active-work, file, or structured-record source changed. This is community documentation, not official Muse implementation evidence.",
+  "localOriginals": ".research-local/muse-community/e222ba4391b6270ba394cd2b8c3809ff959ab609/"
+}
