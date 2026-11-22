@@ -11,6 +11,8 @@
 5. [更新记录](UPDATES.md)：追加变化，不覆盖旧结论。
 6. [整体证据分层](../MUSE_MEMORY_RESEARCH.md)：官方、社区与开源实现的区别。
 
+本轮增量：[Active Memory 推出进展与长期任务线索（2026-11-22）](MUSE_ACTIVE_MEMORY_ROLLOUT_2026-11-22.md)；社区固定 commit 检查见 [INCREMENTAL_REVIEW_2026-11-22.json](INCREMENTAL_REVIEW_2026-11-22.json)。
+
 本轮增量：[Muse Spaces、语音与主动运行（2026-11-15）](MUSE_SPACES_AND_ACTIVE_RUNTIME_2026-11-15.md)；社区增量审阅及校验见 [INCREMENTAL_REVIEW_2026-11-15.json](INCREMENTAL_REVIEW_2026-11-15.json)。原始十文件社区快照 `SNAPSHOT.json` 保留在原 commit，不被后续检查覆盖。
 
 7. [iOS 真机交互记录](IOS_INTERACTIONS_2026-10-10.md)：主要页面、状态与未验证操作。
@@ -40,3 +42,5 @@
 [Muse 官方公开机制补充核对（2026-10-11）](OFFICIAL_TECHNICAL_REVIEW_2026-10-11.md)：安全技术文章对 VM 数据记录、结构化状态、文件备份、授权边界和记忆机制未知项的补充分析。
 
 [Muse Wonder 的 Active Memory 与 Active Focus（2026-10-18）](ACTIVE_MEMORY_AND_FOCUS_2026-10-18.md)：Meta 对跨对话记忆检索、长任务推进及对应评估范围的最新公开说明；不代表其披露了生产存储或 dreaming 算法。
+
+[Active Memory 推出进展与长期任务线索（2026-11-22）](MUSE_ACTIVE_MEMORY_ROLLOUT_2026-11-22.md)：专用模型逐步进入 Muse、跨周偏好复用场景，以及 Muse Code 1.4.21–1.4.24 的提示配置、上下文压缩和后台结果处理；不证明消费端使用 dreaming 或自动演化 SOUL。

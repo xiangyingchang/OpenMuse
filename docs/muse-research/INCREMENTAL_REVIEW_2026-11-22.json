@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-11-22",
+  "repository": "https://github.com/win4r/MuseAI-Skills",
+  "previousCheckpoint": "INCREMENTAL_REVIEW_2026-11-15.json",
+  "fromCommit": "e222ba4391b6270ba394cd2b8c3809ff959ab609",
+  "headAtCheck": "e222ba4391b6270ba394cd2b8c3809ff959ab609",
+  "commits": [],
+  "changedFiles": [],
+  "finding": "The upstream main and HEAD refs are unchanged since the 2026-11-15 checkpoint. No new community commit or file delta was available for this check; the prior incremental review remains the latest community source analysis.",
+  "sourceTier": "community archive; not official Muse implementation evidence"
+}
